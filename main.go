@@ -99,7 +99,7 @@ func ReadInt64(file string) (int64, error) {
 }
 
 func GetBatteryStatusBlock() string {
-	var symbol [5]string = [5]string{"", "", "", "", ""}
+	var symbol [5]string = [5]string{"\uf244", "\uf243", "\uf242", "\uf241", "\uf240"}
 
 	percentage, err := ReadInt64("/sys/class/power_supply/BAT0/capacity")
 	if err != nil {
