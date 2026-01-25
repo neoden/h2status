@@ -113,6 +113,11 @@ func Render() string {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--print-sensors" {
+		PrintDetectedSensors()
+		return
+	}
+
 	var err error
 	cfg, err = LoadConfig()
 	if err != nil {

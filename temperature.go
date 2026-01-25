@@ -41,6 +41,66 @@ func NewTemperatureState() *TemperatureState {
 	return t
 }
 
+func PrintDetectedSensors() {
+	fmt.Println("# Detected temperature sensors:")
+	fmt.Println()
+
+	fmt.Println("# hwmon sensors:")
+	fmt.Println()
+
+	// hwmon sensors
+	hwmons, _ := filepath.Glob("/sys/class/hwmon/hwmon*")
+	for _, hwmon := range hwmons {
+		nameBytes, err := os.ReadFile(filepath.Join(hwmon, "name"))
+		if err != nil {
+			continue
+		}
+		name := strings.TrimSpace(string(nameBytes))
+
+		// Find all temp inputs
+		temps, _ := filepath.Glob(filepath.Join(hwmon, "temp*_input"))
+		for _, tempPath := range temps {
+			// Extract temp number (temp1_input -> 1)
+			base := filepath.Base(tempPath)
+			num := strings.TrimSuffix(strings.TrimPrefix(base, "temp"), "_input")
+
+			label := name
+			labelPath := filepath.Join(hwmon, fmt.Sprintf("temp%s_label", num))
+			if labelBytes, err := os.ReadFile(labelPath); err == nil {
+				label = strings.TrimSpace(string(labelBytes))
+			}
+
+			fmt.Println("[[temperature]]")
+			fmt.Printf("path = %q\n", tempPath)
+			fmt.Printf("label = %q  # %s\n", label, name)
+			fmt.Println("show_above = 75")
+			fmt.Println("urgent_above = 90")
+			fmt.Println()
+		}
+	}
+
+	fmt.Println("# thermal_zone sensors:")
+	fmt.Println()
+
+	// thermal_zone sensors
+	zones, _ := filepath.Glob("/sys/class/thermal/thermal_zone*")
+	for _, zone := range zones {
+		typeBytes, err := os.ReadFile(filepath.Join(zone, "type"))
+		if err != nil {
+			continue
+		}
+		zoneType := strings.TrimSpace(string(typeBytes))
+		tempPath := filepath.Join(zone, "temp")
+
+		fmt.Println("[[temperature]]")
+		fmt.Printf("path = %q\n", tempPath)
+		fmt.Printf("label = %q\n", zoneType)
+		fmt.Println("show_above = 75")
+		fmt.Println("urgent_above = 90")
+		fmt.Println()
+	}
+}
+
 func autoDetectTempSensors() []TempSensor {
 	var sensors []TempSensor
 
