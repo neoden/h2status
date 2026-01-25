@@ -36,12 +36,20 @@ type RAMConfig struct {
 	UrgentAbove int  `toml:"urgent_above"`
 }
 
+type DiskConfig struct {
+	Path        string `toml:"path"`
+	ShowBelow   int    `toml:"show_below"`
+	UrgentBelow int    `toml:"urgent_below"`
+	Unit        string `toml:"unit"` // "gb" or "percent"
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
 	Bluetooth BluetoothConfig `toml:"bluetooth"`
 	CPU       CPUConfig       `toml:"cpu"`
 	RAM       RAMConfig       `toml:"ram"`
+	Disk      []DiskConfig    `toml:"disk"`
 }
 
 func DefaultConfig() *Config {
@@ -69,6 +77,14 @@ func DefaultConfig() *Config {
 			Enabled:     true,
 			ShowAbove:   70,
 			UrgentAbove: 90,
+		},
+		Disk: []DiskConfig{
+			{
+				Path:        "/",
+				ShowBelow:   20,
+				UrgentBelow: 5,
+				Unit:        "gb",
+			},
 		},
 	}
 }

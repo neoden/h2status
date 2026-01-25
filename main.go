@@ -16,6 +16,7 @@ var batteryState *BatteryState
 var bluetoothState *BluetoothState
 var cpuState *CPUState
 var ramState *RAMState
+var diskState *DiskState
 
 func HandleClickEvents(ch chan ClickEvent) {
 	var event ClickEvent
@@ -67,6 +68,11 @@ func Render() string {
 			blocks = append(blocks, ramBlock)
 		}
 	}
+	if diskState != nil {
+		if diskBlock := diskState.GetBlock(); diskBlock != "" {
+			blocks = append(blocks, diskBlock)
+		}
+	}
 	if bluetoothState != nil {
 		if btBlock := bluetoothState.GetBlock(); btBlock != "" {
 			blocks = append(blocks, btBlock)
@@ -104,6 +110,9 @@ func main() {
 	if cfg.RAM.Enabled {
 		ramState = NewRAMState()
 	}
+	if len(cfg.Disk) > 0 {
+		diskState = NewDiskState()
+	}
 
 	SendHeader()
 
@@ -124,6 +133,9 @@ func main() {
 			}
 			if ramState != nil {
 				ramState.Update()
+			}
+			if diskState != nil {
+				diskState.Update()
 			}
 		case <-bluetoothState.updates:
 			// bluetooth state updated, just re-render
