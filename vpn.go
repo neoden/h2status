@@ -69,9 +69,9 @@ func (v *VPNState) GetBlock() string {
 
 	var text string
 	if v.FullRoute {
-		text = "\uf023" // lock icon - full VPN
+		text = "\uf023 " // lock icon - full VPN
 	} else {
-		text = "\uf09c" // unlock icon - split tunneling
+		text = "\uf09c " // unlock icon - split tunneling
 	}
 
 	return MakeBlock("vpn", text, false)
