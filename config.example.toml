@@ -27,3 +27,9 @@ path = "/"
 show_below = 20
 urgent_below = 5
 unit = "gb"  # "gb" or "percent"
+
+[wifi]
+enabled = true
+show_below = -70   # dBm, show when signal weaker than this
+urgent_below = -80
+home_networks = ["MyHomeWiFi"]  # hide these when signal is good

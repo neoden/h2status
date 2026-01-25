@@ -43,6 +43,13 @@ type DiskConfig struct {
 	Unit        string `toml:"unit"` // "gb" or "percent"
 }
 
+type WiFiConfig struct {
+	Enabled      bool     `toml:"enabled"`
+	ShowBelow    int      `toml:"show_below"`    // signal strength in dBm (e.g. -70)
+	UrgentBelow  int      `toml:"urgent_below"`
+	HomeNetworks []string `toml:"home_networks"` // hide these SSIDs when signal is good
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
@@ -50,6 +57,7 @@ type Config struct {
 	CPU       CPUConfig       `toml:"cpu"`
 	RAM       RAMConfig       `toml:"ram"`
 	Disk      []DiskConfig    `toml:"disk"`
+	WiFi      WiFiConfig      `toml:"wifi"`
 }
 
 func DefaultConfig() *Config {
@@ -85,6 +93,12 @@ func DefaultConfig() *Config {
 				UrgentBelow: 5,
 				Unit:        "gb",
 			},
+		},
+		WiFi: WiFiConfig{
+			Enabled:      true,
+			ShowBelow:    -70,
+			UrgentBelow:  -80,
+			HomeNetworks: []string{},
 		},
 	}
 }
