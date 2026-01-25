@@ -1,52 +1,103 @@
-[clock]
-# strftime format, localized via LC_TIME
-# %H=hour24, %M=min, %S=sec, %a=weekday, %A=Weekday, %b=month, %B=Month, %d=day, %Y=year
-formats = ["%H:%M", "%a %d %b"]  # click to cycle
+# h2status configuration
+# Place this file at ~/.config/h2status/config.toml
 
+# Clock widget (always shown, rightmost)
+# strftime format, localized via LC_TIME/LC_ALL/LANG
+# Common directives:
+#   %H=hour(24h) %I=hour(12h) %M=min %S=sec %p=AM/PM
+#   %a=weekday(abbr) %A=weekday %b=month(abbr) %B=month
+#   %d=day %e=day(no leading zero) %Y=year %y=year(2-digit)
+#   %F=%Y-%m-%d %T=%H:%M:%S %R=%H:%M
+# Click on clock to cycle through formats
+[clock]
+formats = ["%H:%M", "%a %d %b"]
+
+# Battery widget
+# Supports multiple batteries (e.g. ThinkPad internal + external)
+# Click to toggle between % and remaining time
 [battery]
 enabled = true
+# hide when charging and above this %
 hide_charging_above = 98
+# hide when discharging and above this %
 hide_discharging_above = 20
+# urgent (red) when below this %
 urgent_below = 10
 
+# Bluetooth widget
+# Shows connected audio devices (A2DP)
 [bluetooth]
 enabled = true
 
+# CPU widget
+# Shows load when above threshold, with per-core hotspot info
 [cpu]
 enabled = true
+# show when total CPU above this %
 show_above = 50
+# show per-core info when any core above this %
 show_core_above = 95
+# averaging window in seconds (smooths out spikes)
 average_seconds = 5
+# urgent when above this %
 urgent_above = 95
 
+# RAM widget
+# Shows usage when above threshold
 [ram]
 enabled = true
+# show when usage above this %
 show_above = 70
 urgent_above = 90
 
+# Disk widget
+# Can monitor multiple paths, shows free space
 [[disk]]
 path = "/"
+# show when free space below this value
 show_below = 20
 urgent_below = 5
-unit = "gb"  # "gb" or "percent"
+# "gb" or "percent"
+unit = "gb"
 
+# [[disk]]
+# path = "/home"
+# show_below = 10
+# urgent_below = 2
+# unit = "percent"
+
+# WiFi widget
+# Shows signal strength and/or network name
 [wifi]
 enabled = true
-show_mode = "weak_signal"  # "weak_signal", "unknown", "always"
-show_below = -70           # dBm, show when signal weaker than this
+# "weak_signal" - only when signal is weak
+# "unknown" - weak signal OR unknown network
+# "always" - always show
+show_mode = "weak_signal"
+# dBm threshold (typical: -30=excellent, -70=fair, -80=weak)
+show_below = -70
 urgent_below = -80
-home_networks = ["MyHomeWiFi"]  # used when show_mode = "unknown"
+# networks considered "known" for show_mode="unknown"
+home_networks = ["MyHomeWiFi"]
 
+# Network widget
+# Shows warning when no default route (no internet)
 [network]
-enabled = true  # shows warning when no default route
+enabled = true
 
+# VPN widget
+# Shows lock icon when VPN interface is active
+# Full lock = VPN is default route, open lock = split tunneling
 [vpn]
 enabled = true
+# glob patterns for VPN interfaces
 interfaces = ["tun*", "wg*", "tap*", "cscotun*"]
 
-# Temperature: auto-detects if not configured
+# Temperature widget
+# Auto-detects CPU sensor if not configured
+# Run `h2status --print-sensors` to see available sensors and generate config
 # [[temperature]]
-# path = "/sys/class/thermal/thermal_zone0/temp"
+# path = "/sys/class/hwmon/hwmon0/temp1_input"
 # label = "CPU"
 # show_above = 75
 # urgent_above = 90
