@@ -54,6 +54,11 @@ type NetworkConfig struct {
 	Enabled bool `toml:"enabled"`
 }
 
+type VPNConfig struct {
+	Enabled    bool     `toml:"enabled"`
+	Interfaces []string `toml:"interfaces"`
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
@@ -63,6 +68,7 @@ type Config struct {
 	Disk      []DiskConfig    `toml:"disk"`
 	WiFi      WiFiConfig      `toml:"wifi"`
 	Network   NetworkConfig   `toml:"network"`
+	VPN       VPNConfig       `toml:"vpn"`
 }
 
 func DefaultConfig() *Config {
@@ -107,6 +113,10 @@ func DefaultConfig() *Config {
 		},
 		Network: NetworkConfig{
 			Enabled: true,
+		},
+		VPN: VPNConfig{
+			Enabled:    true,
+			Interfaces: []string{"tun*", "wg*", "tap*", "cscotun*"},
 		},
 	}
 }

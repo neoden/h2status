@@ -36,3 +36,7 @@ home_networks = ["MyHomeWiFi"]  # hide these when signal is good
 
 [network]
 enabled = true  # shows warning when no default route
+
+[vpn]
+enabled = true
+interfaces = ["tun*", "wg*", "tap*", "cscotun*"]

@@ -19,6 +19,7 @@ var ramState *RAMState
 var diskState *DiskState
 var wifiState *WiFiState
 var networkState *NetworkState
+var vpnState *VPNState
 
 func HandleClickEvents(ch chan ClickEvent) {
 	var event ClickEvent
@@ -85,6 +86,11 @@ func Render() string {
 			blocks = append(blocks, networkBlock)
 		}
 	}
+	if vpnState != nil {
+		if vpnBlock := vpnState.GetBlock(); vpnBlock != "" {
+			blocks = append(blocks, vpnBlock)
+		}
+	}
 	if bluetoothState != nil {
 		if btBlock := bluetoothState.GetBlock(); btBlock != "" {
 			blocks = append(blocks, btBlock)
@@ -131,6 +137,9 @@ func main() {
 	if cfg.Network.Enabled {
 		networkState = NewNetworkState()
 	}
+	if cfg.VPN.Enabled {
+		vpnState = NewVPNState()
+	}
 
 	SendHeader()
 
@@ -160,6 +169,9 @@ func main() {
 			}
 			if networkState != nil {
 				networkState.Update()
+			}
+			if vpnState != nil {
+				vpnState.Update()
 			}
 		case <-bluetoothState.updates:
 			// bluetooth state updated, just re-render

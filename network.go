@@ -7,7 +7,7 @@ import (
 )
 
 type NetworkState struct {
-	HasDefaultRoute bool
+	DefaultRouteIface string
 }
 
 func NewNetworkState() *NetworkState {
@@ -15,12 +15,22 @@ func NewNetworkState() *NetworkState {
 }
 
 func (n *NetworkState) Update() {
-	n.HasDefaultRoute = false
+	n.DefaultRouteIface = getDefaultRouteIface()
+}
 
+func (n *NetworkState) GetBlock() string {
+	if n.DefaultRouteIface != "" {
+		return ""
+	}
+	return MakeBlock("network", "\uf071 No network", true)
+}
+
+// getDefaultRouteIface returns the interface name for default route, or empty string if none
+func getDefaultRouteIface() string {
 	f, err := os.Open("/proc/net/route")
 	if err != nil {
 		l.Println("network:", err)
-		return
+		return ""
 	}
 	defer f.Close()
 
@@ -34,15 +44,8 @@ func (n *NetworkState) Update() {
 		}
 		// Destination 00000000 = default route
 		if fields[1] == "00000000" {
-			n.HasDefaultRoute = true
-			return
+			return fields[0]
 		}
 	}
-}
-
-func (n *NetworkState) GetBlock() string {
-	if n.HasDefaultRoute {
-		return ""
-	}
-	return MakeBlock("network", "\uf071 No network", true)
+	return ""
 }
