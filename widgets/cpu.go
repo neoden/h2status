@@ -66,7 +66,7 @@ func (c *CPU) addToHistory(usage CPUUsage) {
 }
 
 func (c *CPU) GetAverageUsage() *CPUUsage {
-	if len(c.history) == 0 {
+	if len(c.history) < c.cfg.AverageSeconds {
 		return nil
 	}
 
