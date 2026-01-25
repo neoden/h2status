@@ -11,6 +11,7 @@ type BatteryConfig struct {
 	Enabled              bool `toml:"enabled"`
 	HideChargingAbove    int  `toml:"hide_charging_above"`
 	HideDischargingAbove int  `toml:"hide_discharging_above"`
+	UrgentBelow          int  `toml:"urgent_below"`
 }
 
 type BluetoothConfig struct {
@@ -26,8 +27,9 @@ func DefaultConfig() *Config {
 	return &Config{
 		Battery: BatteryConfig{
 			Enabled:              true,
-			HideChargingAbove:    99,
+			HideChargingAbove:    98,
 			HideDischargingAbove: 20,
+			UrgentBelow:          10,
 		},
 		Bluetooth: BluetoothConfig{
 			Enabled: true,

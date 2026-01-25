@@ -79,7 +79,7 @@ func (b *BatteryState) GetBlock() string {
 		return ""
 	}
 
-	if b.IsCharging && b.Percentage >= cfg.Battery.HideChargingAbove {
+	if b.IsCharging && b.Percentage > cfg.Battery.HideChargingAbove {
 		return ""
 	}
 	if !b.IsCharging && b.Percentage > cfg.Battery.HideDischargingAbove {
@@ -102,7 +102,7 @@ func (b *BatteryState) GetBlock() string {
 		text = fmt.Sprintf("%s %s", symbol, fmtDuration(b.Remaining))
 	}
 
-	return MakeBlock("power_supply", text, b.Percentage < 10)
+	return MakeBlock("power_supply", text, b.Percentage < cfg.Battery.UrgentBelow)
 }
 
 func readInt(file string) (int, error) {

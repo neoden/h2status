@@ -1,0 +1,8 @@
+[battery]
+enabled = true
+hide_charging_above = 98
+hide_discharging_above = 20
+urgent_below = 10
+
+[bluetooth]
+enabled = true
