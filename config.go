@@ -50,6 +50,10 @@ type WiFiConfig struct {
 	HomeNetworks []string `toml:"home_networks"` // hide these SSIDs when signal is good
 }
 
+type NetworkConfig struct {
+	Enabled bool `toml:"enabled"`
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
@@ -58,6 +62,7 @@ type Config struct {
 	RAM       RAMConfig       `toml:"ram"`
 	Disk      []DiskConfig    `toml:"disk"`
 	WiFi      WiFiConfig      `toml:"wifi"`
+	Network   NetworkConfig   `toml:"network"`
 }
 
 func DefaultConfig() *Config {
@@ -99,6 +104,9 @@ func DefaultConfig() *Config {
 			ShowBelow:    -70,
 			UrgentBelow:  -80,
 			HomeNetworks: []string{},
+		},
+		Network: NetworkConfig{
+			Enabled: true,
 		},
 	}
 }
