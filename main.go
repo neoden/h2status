@@ -12,8 +12,9 @@ import (
 var l = log.New(os.Stderr, "", 0)
 
 var cfg *Config
-var batteryState = &BatteryState{}
-var bluetoothState = NewBluetoothState()
+var batteryState *BatteryState
+var bluetoothState *BluetoothState
+var cpuState *CPUState
 
 func HandleClickEvents(ch chan ClickEvent) {
 	var event ClickEvent
@@ -55,12 +56,17 @@ func HandleClickEvents(ch chan ClickEvent) {
 func Render() string {
 	blocks := []string{}
 
-	if cfg.Bluetooth.Enabled {
+	if cpuState != nil {
+		if cpuBlock := cpuState.GetBlock(); cpuBlock != "" {
+			blocks = append(blocks, cpuBlock)
+		}
+	}
+	if bluetoothState != nil {
 		if btBlock := bluetoothState.GetBlock(); btBlock != "" {
 			blocks = append(blocks, btBlock)
 		}
 	}
-	if cfg.Battery.Enabled {
+	if batteryState != nil {
 		if batteryBlock := batteryState.GetBlock(); batteryBlock != "" {
 			blocks = append(blocks, batteryBlock)
 		}
@@ -77,13 +83,20 @@ func main() {
 		l.Println("config load:", err)
 	}
 
-	SendHeader()
-
+	if cfg.Battery.Enabled {
+		batteryState = NewBatteryState()
+	}
 	if cfg.Bluetooth.Enabled {
+		bluetoothState = NewBluetoothState()
 		if err := bluetoothState.Init(); err != nil {
 			l.Println("bluetooth init:", err)
 		}
 	}
+	if cfg.CPU.Enabled {
+		cpuState = NewCPUState(cfg.CPU.AverageSeconds)
+	}
+
+	SendHeader()
 
 	clockCh := make(chan uint64)
 	eventsCh := make(chan ClickEvent)
@@ -94,7 +107,12 @@ func main() {
 	for {
 		select {
 		case <-clockCh:
-			batteryState.Update()
+			if batteryState != nil {
+				batteryState.Update()
+			}
+			if cpuState != nil {
+				cpuState.Update()
+			}
 		case <-bluetoothState.updates:
 			// bluetooth state updated, just re-render
 		case event := <-eventsCh:

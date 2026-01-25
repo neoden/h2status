@@ -22,10 +22,19 @@ type ClockConfig struct {
 	Format string `toml:"format"`
 }
 
+type CPUConfig struct {
+	Enabled        bool `toml:"enabled"`
+	ShowAbove      int  `toml:"show_above"`
+	ShowCoreAbove  int  `toml:"show_core_above"`
+	AverageSeconds int  `toml:"average_seconds"`
+	UrgentAbove    int  `toml:"urgent_above"`
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
 	Bluetooth BluetoothConfig `toml:"bluetooth"`
+	CPU       CPUConfig       `toml:"cpu"`
 }
 
 func DefaultConfig() *Config {
@@ -41,6 +50,13 @@ func DefaultConfig() *Config {
 		},
 		Bluetooth: BluetoothConfig{
 			Enabled: true,
+		},
+		CPU: CPUConfig{
+			Enabled:        true,
+			ShowAbove:      50,
+			ShowCoreAbove:  95,
+			AverageSeconds: 5,
+			UrgentAbove:    95,
 		},
 	}
 }

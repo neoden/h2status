@@ -24,6 +24,10 @@ type BatteryState struct {
 	Mode       int
 }
 
+func NewBatteryState() *BatteryState {
+	return &BatteryState{}
+}
+
 func (b *BatteryState) Update() {
 	path := "/sys/class/power_supply/BAT0/"
 
