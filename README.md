@@ -1,6 +1,6 @@
 # h2status
 
-Lightweight status bar for sway/i3, written in Go.
+Lightweight status bar for sway/i3.
 
 ## Philosophy
 
