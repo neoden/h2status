@@ -11,6 +11,7 @@ import (
 
 var l = log.New(os.Stderr, "", 0)
 
+var cfg *Config
 var batteryState = &BatteryState{}
 var bluetoothState = NewBluetoothState()
 
@@ -54,11 +55,15 @@ func HandleClickEvents(ch chan ClickEvent) {
 func Render() string {
 	blocks := []string{}
 
-	if btBlock := bluetoothState.GetBlock(); btBlock != "" {
-		blocks = append(blocks, btBlock)
+	if cfg.Bluetooth.Enabled {
+		if btBlock := bluetoothState.GetBlock(); btBlock != "" {
+			blocks = append(blocks, btBlock)
+		}
 	}
-	if batteryBlock := batteryState.GetBlock(); batteryBlock != "" {
-		blocks = append(blocks, batteryBlock)
+	if cfg.Battery.Enabled {
+		if batteryBlock := batteryState.GetBlock(); batteryBlock != "" {
+			blocks = append(blocks, batteryBlock)
+		}
 	}
 	blocks = append(blocks, GetCurrentTimeBlock("15:04"))
 
@@ -66,10 +71,18 @@ func Render() string {
 }
 
 func main() {
+	var err error
+	cfg, err = LoadConfig()
+	if err != nil {
+		l.Println("config load:", err)
+	}
+
 	SendHeader()
 
-	if err := bluetoothState.Init(); err != nil {
-		l.Println("bluetooth init:", err)
+	if cfg.Bluetooth.Enabled {
+		if err := bluetoothState.Init(); err != nil {
+			l.Println("bluetooth init:", err)
+		}
 	}
 
 	clockCh := make(chan uint64)

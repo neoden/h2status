@@ -79,6 +79,13 @@ func (b *BatteryState) GetBlock() string {
 		return ""
 	}
 
+	if b.IsCharging && b.Percentage >= cfg.Battery.HideChargingAbove {
+		return ""
+	}
+	if !b.IsCharging && b.Percentage > cfg.Battery.HideDischargingAbove {
+		return ""
+	}
+
 	var symbols [6]string = [6]string{"\uf244", "\uf243", "\uf242", "\uf241", "\uf240", "\uf240"}
 	var symbol = symbols[0]
 	var text = ""
