@@ -88,6 +88,12 @@ To list available temperature sensors:
 h2status --print-sensors
 ```
 
+## Contributing
+
+Issues are welcome — bug reports, feature requests, questions.
+
+For code changes, please open an issue first to discuss. This helps avoid wasted effort on both sides.
+
 ## License
 
 MIT
