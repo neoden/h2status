@@ -22,6 +22,7 @@ const BATTERY_STATE_MODE_PECENTAGE = 0
 const BATTERY_STATE_MODE_REMAINING_TIME = 1
 
 type BatteryState struct {
+	Present    bool
 	Percentage int
 	Status     string
 	EnergyFull int
@@ -36,6 +37,12 @@ var batteryState = BatteryState{}
 
 func (b *BatteryState) Update() {
 	path := "/sys/class/power_supply/BAT0/"
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		b.Present = false
+		return
+	}
+	b.Present = true
 
 	percentage, err := ReadInt(path + "capacity")
 	if err != nil {
@@ -142,6 +149,10 @@ func fmtDuration(d time.Duration) string {
 }
 
 func (b *BatteryState) GetBatteryStatusBlock() string {
+	if !b.Present {
+		return ""
+	}
+
 	var symbols [6]string = [6]string{"\uf244", "\uf243", "\uf242", "\uf241", "\uf240", "\uf240"}
 	var symbol = symbols[0]
 	var text = ""
@@ -200,10 +211,14 @@ func HandleClickEvents(ch chan ClickEvent, f *os.File) {
 }
 
 func Render() string {
-	return "[" +
-		batteryState.GetBatteryStatusBlock() + "," +
-		GetCurrentTimeBlock("15:04") +
-		"],"
+	blocks := []string{}
+
+	if batteryBlock := batteryState.GetBatteryStatusBlock(); batteryBlock != "" {
+		blocks = append(blocks, batteryBlock)
+	}
+	blocks = append(blocks, GetCurrentTimeBlock("15:04"))
+
+	return "[" + strings.Join(blocks, ",") + "],"
 }
 
 func main() {
