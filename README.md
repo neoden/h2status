@@ -28,7 +28,7 @@ All widgets are threshold-based: they only appear when something needs attention
 Download from [Releases](../../releases):
 
 ```sh
-curl -L https://github.com/USER/h2status/releases/latest/download/h2status-linux-amd64 -o h2status
+curl -L https://github.com/neoden/h2status/releases/latest/download/h2status-linux-amd64 -o h2status
 chmod +x h2status
 sudo mv h2status /usr/local/bin/
 ```
@@ -36,13 +36,13 @@ sudo mv h2status /usr/local/bin/
 ### From source
 
 ```sh
-go install github.com/USER/h2status@latest
+go install github.com/neoden/h2status@latest
 ```
 
 Or:
 
 ```sh
-git clone https://github.com/USER/h2status
+git clone https://github.com/neoden/h2status
 cd h2status
 go build
 ```
