@@ -23,7 +23,7 @@ type App struct {
 func NewApp(cfg *config.Config) *App {
 	app := &App{
 		cfg:   cfg,
-		clock: widgets.NewClock(cfg.Clock.Format),
+		clock: widgets.NewClock(cfg.Clock.Formats),
 	}
 
 	// Initialize widgets based on config
@@ -85,8 +85,13 @@ func (app *App) Render() string {
 }
 
 func (app *App) HandleClick(event swaybar.ClickEvent) {
-	if event.Name == "power_supply" && app.battery != nil {
-		app.battery.HandleClick(event.Button)
+	switch event.Name {
+	case "power_supply":
+		if app.battery != nil {
+			app.battery.HandleClick(event.Button)
+		}
+	case "clock":
+		app.clock.HandleClick(event.Button)
 	}
 }
 

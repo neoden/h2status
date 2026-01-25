@@ -1,5 +1,7 @@
 [clock]
-format = "15:04"
+# strftime format, localized via LC_TIME
+# %H=hour24, %M=min, %S=sec, %a=weekday, %A=Weekday, %b=month, %B=Month, %d=day, %Y=year
+formats = ["%H:%M", "%a %d %b"]  # click to cycle
 
 [battery]
 enabled = true

@@ -19,7 +19,7 @@ type BluetoothConfig struct {
 }
 
 type ClockConfig struct {
-	Format string `toml:"format"`
+	Formats []string `toml:"formats"`
 }
 
 type CPUConfig struct {
@@ -83,7 +83,7 @@ type Config struct {
 func Default() *Config {
 	return &Config{
 		Clock: ClockConfig{
-			Format: "15:04",
+			Formats: []string{"%H:%M", "%a %d %b"},
 		},
 		Battery: BatteryConfig{
 			Enabled:              true,

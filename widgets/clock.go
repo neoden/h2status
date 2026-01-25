@@ -5,19 +5,33 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"neoden/h2status/swaybar"
 
+	"github.com/klauspost/lctime"
 	"golang.org/x/sys/unix"
 )
 
-type Clock struct {
-	format string
+func init() {
+	// Fallback to en_US if current locale is minimal (C, POSIX, etc)
+	loc := lctime.GetLocale()
+	if loc == "" || loc == "C" || loc == "POSIX" || strings.HasPrefix(loc, "C.") {
+		lctime.SetLocale("en_US")
+	}
 }
 
-func NewClock(format string) *Clock {
-	return &Clock{format: format}
+type Clock struct {
+	formats []string
+	index   int
+}
+
+func NewClock(formats []string) *Clock {
+	if len(formats) == 0 {
+		formats = []string{"%H:%M"}
+	}
+	return &Clock{formats: formats}
 }
 
 func (c *Clock) Update() {
@@ -25,8 +39,12 @@ func (c *Clock) Update() {
 }
 
 func (c *Clock) GetBlock() string {
-	dt := time.Now()
-	return swaybar.MakeBlock("time", dt.Format(c.format), false)
+	text := lctime.Strftime(c.formats[c.index], time.Now())
+	return swaybar.MakeBlock("clock", text, false)
+}
+
+func (c *Clock) HandleClick(button int) {
+	c.index = (c.index + 1) % len(c.formats)
 }
 
 // StartTicker creates a timerfd-based ticker that fires every second
