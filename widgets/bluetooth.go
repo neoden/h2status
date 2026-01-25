@@ -49,11 +49,7 @@ func (b *Bluetooth) Init() error {
 		return err
 	}
 
-	for path, ifaces := range managed {
-		if device, ok := ifaces["org.bluez.Device1"]; ok {
-			b.updateDevice(path, device)
-		}
-	}
+	b.processManagedObjects(managed)
 
 	// Subscribe to property changes
 	conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0,
@@ -66,6 +62,14 @@ func (b *Bluetooth) Init() error {
 	go b.listenSignals()
 
 	return nil
+}
+
+func (b *Bluetooth) processManagedObjects(managed map[dbus.ObjectPath]map[string]map[string]dbus.Variant) {
+	for path, ifaces := range managed {
+		if device, ok := ifaces["org.bluez.Device1"]; ok {
+			b.updateDevice(path, device)
+		}
+	}
 }
 
 func (b *Bluetooth) Updates() <-chan struct{} {
@@ -104,42 +108,61 @@ func (b *Bluetooth) listenSignals() {
 	b.conn.Signal(ch)
 
 	for signal := range ch {
-		switch signal.Name {
-		case "org.freedesktop.DBus.Properties.PropertiesChanged":
-			if len(signal.Body) < 2 {
-				continue
-			}
-			iface := signal.Body[0].(string)
-			if iface != "org.bluez.Device1" {
-				continue
-			}
-			changed := signal.Body[1].(map[string]dbus.Variant)
-			b.updateDevice(signal.Path, changed)
+		b.handleSignal(signal)
+	}
+}
+
+func (b *Bluetooth) handleSignal(signal *dbus.Signal) {
+	switch signal.Name {
+	case "org.freedesktop.DBus.Properties.PropertiesChanged":
+		if len(signal.Body) < 2 {
+			return
+		}
+		iface, ok := signal.Body[0].(string)
+		if !ok || iface != "org.bluez.Device1" {
+			return
+		}
+		changed, ok := signal.Body[1].(map[string]dbus.Variant)
+		if !ok {
+			return
+		}
+		b.updateDevice(signal.Path, changed)
+		b.notifyUpdate()
+
+	case "org.freedesktop.DBus.ObjectManager.InterfacesAdded":
+		if len(signal.Body) < 2 {
+			return
+		}
+		path, ok := signal.Body[0].(dbus.ObjectPath)
+		if !ok {
+			return
+		}
+		ifaces, ok := signal.Body[1].(map[string]map[string]dbus.Variant)
+		if !ok {
+			return
+		}
+		if device, ok := ifaces["org.bluez.Device1"]; ok {
+			b.updateDevice(path, device)
 			b.notifyUpdate()
+		}
 
-		case "org.freedesktop.DBus.ObjectManager.InterfacesAdded":
-			if len(signal.Body) < 2 {
-				continue
-			}
-			path := signal.Body[0].(dbus.ObjectPath)
-			ifaces := signal.Body[1].(map[string]map[string]dbus.Variant)
-			if device, ok := ifaces["org.bluez.Device1"]; ok {
-				b.updateDevice(path, device)
+	case "org.freedesktop.DBus.ObjectManager.InterfacesRemoved":
+		if len(signal.Body) < 2 {
+			return
+		}
+		path, ok := signal.Body[0].(dbus.ObjectPath)
+		if !ok {
+			return
+		}
+		ifaces, ok := signal.Body[1].([]string)
+		if !ok {
+			return
+		}
+		for _, iface := range ifaces {
+			if iface == "org.bluez.Device1" {
+				delete(b.devices, path)
 				b.notifyUpdate()
-			}
-
-		case "org.freedesktop.DBus.ObjectManager.InterfacesRemoved":
-			if len(signal.Body) < 2 {
-				continue
-			}
-			path := signal.Body[0].(dbus.ObjectPath)
-			ifaces := signal.Body[1].([]string)
-			for _, iface := range ifaces {
-				if iface == "org.bluez.Device1" {
-					delete(b.devices, path)
-					b.notifyUpdate()
-					break
-				}
+				break
 			}
 		}
 	}

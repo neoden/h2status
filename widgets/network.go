@@ -2,22 +2,24 @@ package widgets
 
 import (
 	"bufio"
-	"os"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"neoden/h2status/swaybar"
 )
 
 type Network struct {
+	fs                afero.Fs
 	DefaultRouteIface string
 }
 
-func NewNetwork() *Network {
-	return &Network{}
+func NewNetwork(fs afero.Fs) *Network {
+	return &Network{fs: fs}
 }
 
 func (n *Network) Update() {
-	n.DefaultRouteIface = GetDefaultRouteIface()
+	n.DefaultRouteIface = GetDefaultRouteIface(n.fs)
 }
 
 func (n *Network) GetBlock() string {
@@ -28,8 +30,8 @@ func (n *Network) GetBlock() string {
 }
 
 // GetDefaultRouteIface returns the interface name for default route, or empty string if none
-func GetDefaultRouteIface() string {
-	f, err := os.Open("/proc/net/route")
+func GetDefaultRouteIface(fs afero.Fs) string {
+	f, err := fs.Open("/proc/net/route")
 	if err != nil {
 		Log.Error("network", "error", err)
 		return ""

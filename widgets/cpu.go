@@ -3,9 +3,10 @@ package widgets
 import (
 	"bufio"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
@@ -30,20 +31,22 @@ type CPUUsage struct {
 }
 
 type CPU struct {
+	fs           afero.Fs
 	cfg          config.CPUConfig
 	prevSnapshot *CPUSnapshot
 	history      []CPUUsage
 }
 
-func NewCPU(cfg config.CPUConfig) *CPU {
+func NewCPU(cfg config.CPUConfig, fs afero.Fs) *CPU {
 	return &CPU{
+		fs:      fs,
 		cfg:     cfg,
 		history: make([]CPUUsage, 0, cfg.AverageSeconds),
 	}
 }
 
 func (c *CPU) Update() {
-	snapshot, err := readCPUSnapshot()
+	snapshot, err := c.readSnapshot()
 	if err != nil {
 		Log.Error("cpu", "error", err)
 		return
@@ -127,8 +130,8 @@ func (c *CPU) GetBlock() string {
 	return swaybar.MakeBlock("cpu", text, urgent)
 }
 
-func readCPUSnapshot() (*CPUSnapshot, error) {
-	f, err := os.Open("/proc/stat")
+func (c *CPU) readSnapshot() (*CPUSnapshot, error) {
+	f, err := c.fs.Open("/proc/stat")
 	if err != nil {
 		return nil, err
 	}

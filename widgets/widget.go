@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+
 // Widget is the interface for status bar widgets
 type Widget interface {
 	Update()

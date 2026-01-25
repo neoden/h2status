@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
 	"neoden/h2status/widgets"
@@ -26,15 +28,17 @@ func NewApp(cfg *config.Config) *App {
 		clock: widgets.NewClock(cfg.Clock.Formats),
 	}
 
+	fs := afero.NewOsFs()
+
 	// Initialize widgets based on config
 	if cfg.CPU.Enabled {
-		app.widgets = append(app.widgets, widgets.NewCPU(cfg.CPU))
+		app.widgets = append(app.widgets, widgets.NewCPU(cfg.CPU, fs))
 	}
 	if cfg.RAM.Enabled {
-		app.widgets = append(app.widgets, widgets.NewRAM(cfg.RAM))
+		app.widgets = append(app.widgets, widgets.NewRAM(cfg.RAM, fs))
 	}
 	if len(cfg.Temperature) > 0 || true { // always try to auto-detect
-		app.widgets = append(app.widgets, widgets.NewTemperature(cfg.Temperature))
+		app.widgets = append(app.widgets, widgets.NewTemperature(cfg.Temperature, fs))
 	}
 	if len(cfg.Disk) > 0 {
 		app.widgets = append(app.widgets, widgets.NewDisk(cfg.Disk))
@@ -43,10 +47,10 @@ func NewApp(cfg *config.Config) *App {
 		app.widgets = append(app.widgets, widgets.NewWiFi(cfg.WiFi))
 	}
 	if cfg.Network.Enabled {
-		app.widgets = append(app.widgets, widgets.NewNetwork())
+		app.widgets = append(app.widgets, widgets.NewNetwork(fs))
 	}
 	if cfg.VPN.Enabled {
-		app.widgets = append(app.widgets, widgets.NewVPN(cfg.VPN))
+		app.widgets = append(app.widgets, widgets.NewVPN(cfg.VPN, fs))
 	}
 	if cfg.Bluetooth.Enabled {
 		app.bluetooth = widgets.NewBluetooth()
@@ -56,7 +60,7 @@ func NewApp(cfg *config.Config) *App {
 		app.widgets = append(app.widgets, app.bluetooth)
 	}
 	if cfg.Battery.Enabled {
-		app.battery = widgets.NewBattery(cfg.Battery)
+		app.battery = widgets.NewBattery(cfg.Battery, fs)
 		app.widgets = append(app.widgets, app.battery)
 	}
 

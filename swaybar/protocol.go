@@ -3,6 +3,7 @@ package swaybar
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -48,13 +49,17 @@ type ClickEvent struct {
 }
 
 func SendHeader() {
+	SendHeaderTo(os.Stdout)
+}
+
+func SendHeaderTo(w io.Writer) {
 	headerStr, _ := json.Marshal(Header{
 		Version:     1,
 		ClickEvents: true,
 	})
 
-	fmt.Println(string(headerStr))
-	fmt.Println("[")
+	fmt.Fprintln(w, string(headerStr))
+	fmt.Fprintln(w, "[")
 }
 
 func MakeBlock(name string, fullText string, urgent bool) string {

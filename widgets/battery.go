@@ -2,10 +2,12 @@ package widgets
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
@@ -25,6 +27,7 @@ type BatteryInfo struct {
 }
 
 type Battery struct {
+	fs         afero.Fs
 	cfg        config.BatteryConfig
 	batteries  []BatteryInfo
 	Present    bool
@@ -37,8 +40,17 @@ type Battery struct {
 	Mode       int
 }
 
-func NewBattery(cfg config.BatteryConfig) *Battery {
-	return &Battery{cfg: cfg}
+func NewBattery(cfg config.BatteryConfig, fs afero.Fs) *Battery {
+	return &Battery{cfg: cfg, fs: fs}
+}
+
+func (b *Battery) readInt(path string) int {
+	content, err := afero.ReadFile(b.fs, path)
+	if err != nil {
+		return 0
+	}
+	val, _ := strconv.ParseInt(strings.TrimSpace(string(content)), 10, 32)
+	return int(val)
 }
 
 func (b *Battery) Update() {
@@ -50,7 +62,7 @@ func (b *Battery) Update() {
 	b.IsCharging = false
 
 	// Find all batteries
-	matches, err := filepath.Glob("/sys/class/power_supply/BAT*")
+	matches, err := afero.Glob(b.fs, "/sys/class/power_supply/BAT*")
 	if err != nil || len(matches) == 0 {
 		return
 	}
@@ -59,27 +71,27 @@ func (b *Battery) Update() {
 		bat := BatteryInfo{Path: path}
 
 		// Check if battery is present
-		if _, err := os.Stat(filepath.Join(path, "capacity")); os.IsNotExist(err) {
+		if _, err := b.fs.Stat(filepath.Join(path, "capacity")); err != nil {
 			continue
 		}
 
 		// Read status
-		status, err := os.ReadFile(filepath.Join(path, "status"))
+		status, err := afero.ReadFile(b.fs, filepath.Join(path, "status"))
 		if err != nil {
 			continue
 		}
 		bat.Status = strings.TrimSpace(string(status))
 
 		// Read energy values
-		bat.EnergyFull, _ = ReadInt(filepath.Join(path, "energy_full"))
-		bat.EnergyNow, _ = ReadInt(filepath.Join(path, "energy_now"))
-		bat.PowerNow, _ = ReadInt(filepath.Join(path, "power_now"))
+		bat.EnergyFull = b.readInt(filepath.Join(path, "energy_full"))
+		bat.EnergyNow = b.readInt(filepath.Join(path, "energy_now"))
+		bat.PowerNow = b.readInt(filepath.Join(path, "power_now"))
 
 		// If energy_* not available, try charge_* (some systems use this)
 		if bat.EnergyFull == 0 {
-			bat.EnergyFull, _ = ReadInt(filepath.Join(path, "charge_full"))
-			bat.EnergyNow, _ = ReadInt(filepath.Join(path, "charge_now"))
-			bat.PowerNow, _ = ReadInt(filepath.Join(path, "current_now"))
+			bat.EnergyFull = b.readInt(filepath.Join(path, "charge_full"))
+			bat.EnergyNow = b.readInt(filepath.Join(path, "charge_now"))
+			bat.PowerNow = b.readInt(filepath.Join(path, "current_now"))
 		}
 
 		b.batteries = append(b.batteries, bat)

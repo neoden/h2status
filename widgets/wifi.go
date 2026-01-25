@@ -9,9 +9,15 @@ import (
 	"github.com/mdlayher/wifi"
 )
 
+// WiFiClient interface for testing
+type WiFiClient interface {
+	Interfaces() ([]*wifi.Interface, error)
+	BSS(*wifi.Interface) (*wifi.BSS, error)
+}
+
 type WiFi struct {
 	cfg       config.WiFiConfig
-	client    *wifi.Client
+	client    WiFiClient
 	Connected bool
 	SSID      string
 	Signal    int // dBm
@@ -41,6 +47,10 @@ func (w *WiFi) Update() {
 		return
 	}
 
+	w.processInterfaces(interfaces)
+}
+
+func (w *WiFi) processInterfaces(interfaces []*wifi.Interface) {
 	for _, iface := range interfaces {
 		if iface.Type != wifi.InterfaceTypeStation {
 			continue

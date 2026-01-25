@@ -2,10 +2,13 @@ package widgets
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
@@ -20,11 +23,12 @@ type TempSensor struct {
 }
 
 type Temperature struct {
+	fs      afero.Fs
 	sensors []TempSensor
 }
 
-func NewTemperature(cfgs []config.TemperatureConfig) *Temperature {
-	t := &Temperature{}
+func NewTemperature(cfgs []config.TemperatureConfig, fs afero.Fs) *Temperature {
+	t := &Temperature{fs: fs}
 
 	if len(cfgs) > 0 {
 		// Use configured sensors
@@ -38,30 +42,34 @@ func NewTemperature(cfgs []config.TemperatureConfig) *Temperature {
 		}
 	} else {
 		// Auto-detect
-		t.sensors = autoDetectTempSensors()
+		t.sensors = t.autoDetectSensors()
 	}
 
 	return t
 }
 
 func PrintDetectedSensors() {
-	fmt.Println("# Detected temperature sensors:")
-	fmt.Println()
+	PrintDetectedSensorsTo(afero.NewOsFs(), os.Stdout)
+}
 
-	fmt.Println("# hwmon sensors:")
-	fmt.Println()
+func PrintDetectedSensorsTo(fs afero.Fs, w io.Writer) {
+	fmt.Fprintln(w, "# Detected temperature sensors:")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "# hwmon sensors:")
+	fmt.Fprintln(w)
 
 	// hwmon sensors
-	hwmons, _ := filepath.Glob("/sys/class/hwmon/hwmon*")
+	hwmons, _ := afero.Glob(fs, "/sys/class/hwmon/hwmon*")
 	for _, hwmon := range hwmons {
-		nameBytes, err := os.ReadFile(filepath.Join(hwmon, "name"))
+		nameBytes, err := afero.ReadFile(fs, filepath.Join(hwmon, "name"))
 		if err != nil {
 			continue
 		}
 		name := strings.TrimSpace(string(nameBytes))
 
 		// Find all temp inputs
-		temps, _ := filepath.Glob(filepath.Join(hwmon, "temp*_input"))
+		temps, _ := afero.Glob(fs, filepath.Join(hwmon, "temp*_input"))
 		for _, tempPath := range temps {
 			// Extract temp number (temp1_input -> 1)
 			base := filepath.Base(tempPath)
@@ -69,52 +77,52 @@ func PrintDetectedSensors() {
 
 			label := name
 			labelPath := filepath.Join(hwmon, fmt.Sprintf("temp%s_label", num))
-			if labelBytes, err := os.ReadFile(labelPath); err == nil {
+			if labelBytes, err := afero.ReadFile(fs, labelPath); err == nil {
 				label = strings.TrimSpace(string(labelBytes))
 			}
 
-			fmt.Println("[[temperature]]")
-			fmt.Printf("path = %q\n", tempPath)
-			fmt.Printf("label = %q  # %s\n", label, name)
-			fmt.Println("show_above = 75")
-			fmt.Println("urgent_above = 90")
-			fmt.Println()
+			fmt.Fprintln(w, "[[temperature]]")
+			fmt.Fprintf(w, "path = %q\n", tempPath)
+			fmt.Fprintf(w, "label = %q  # %s\n", label, name)
+			fmt.Fprintln(w, "show_above = 75")
+			fmt.Fprintln(w, "urgent_above = 90")
+			fmt.Fprintln(w)
 		}
 	}
 
-	fmt.Println("# thermal_zone sensors:")
-	fmt.Println()
+	fmt.Fprintln(w, "# thermal_zone sensors:")
+	fmt.Fprintln(w)
 
 	// thermal_zone sensors
-	zones, _ := filepath.Glob("/sys/class/thermal/thermal_zone*")
+	zones, _ := afero.Glob(fs, "/sys/class/thermal/thermal_zone*")
 	for _, zone := range zones {
-		typeBytes, err := os.ReadFile(filepath.Join(zone, "type"))
+		typeBytes, err := afero.ReadFile(fs, filepath.Join(zone, "type"))
 		if err != nil {
 			continue
 		}
 		zoneType := strings.TrimSpace(string(typeBytes))
 		tempPath := filepath.Join(zone, "temp")
 
-		fmt.Println("[[temperature]]")
-		fmt.Printf("path = %q\n", tempPath)
-		fmt.Printf("label = %q\n", zoneType)
-		fmt.Println("show_above = 75")
-		fmt.Println("urgent_above = 90")
-		fmt.Println()
+		fmt.Fprintln(w, "[[temperature]]")
+		fmt.Fprintf(w, "path = %q\n", tempPath)
+		fmt.Fprintf(w, "label = %q\n", zoneType)
+		fmt.Fprintln(w, "show_above = 75")
+		fmt.Fprintln(w, "urgent_above = 90")
+		fmt.Fprintln(w)
 	}
 }
 
-func autoDetectTempSensors() []TempSensor {
+func (t *Temperature) autoDetectSensors() []TempSensor {
 	var sensors []TempSensor
 
 	// Priority order for hwmon/thermal names
 	priorities := []string{"coretemp", "k10temp", "x86_pkg", "cpu", "pkg", "acpitz"}
 
 	// Try hwmon first (more accurate)
-	hwmons, _ := filepath.Glob("/sys/class/hwmon/hwmon*")
+	hwmons, _ := afero.Glob(t.fs, "/sys/class/hwmon/hwmon*")
 	for _, prio := range priorities {
 		for _, hwmon := range hwmons {
-			nameBytes, err := os.ReadFile(filepath.Join(hwmon, "name"))
+			nameBytes, err := afero.ReadFile(t.fs, filepath.Join(hwmon, "name"))
 			if err != nil {
 				continue
 			}
@@ -123,13 +131,13 @@ func autoDetectTempSensors() []TempSensor {
 			if strings.Contains(strings.ToLower(name), prio) {
 				// Find temp input file (usually temp1_input)
 				tempFile := filepath.Join(hwmon, "temp1_input")
-				if _, err := os.Stat(tempFile); err != nil {
+				if _, err := t.fs.Stat(tempFile); err != nil {
 					continue
 				}
 
 				// Try to get label
 				label := name
-				labelBytes, err := os.ReadFile(filepath.Join(hwmon, "temp1_label"))
+				labelBytes, err := afero.ReadFile(t.fs, filepath.Join(hwmon, "temp1_label"))
 				if err == nil {
 					label = strings.TrimSpace(string(labelBytes))
 				}
@@ -146,10 +154,10 @@ func autoDetectTempSensors() []TempSensor {
 	}
 
 	// Fallback to thermal_zone
-	zones, _ := filepath.Glob("/sys/class/thermal/thermal_zone*")
+	zones, _ := afero.Glob(t.fs, "/sys/class/thermal/thermal_zone*")
 	for _, prio := range priorities {
 		for _, zone := range zones {
-			typeBytes, err := os.ReadFile(filepath.Join(zone, "type"))
+			typeBytes, err := afero.ReadFile(t.fs, filepath.Join(zone, "type"))
 			if err != nil {
 				continue
 			}
@@ -172,7 +180,7 @@ func autoDetectTempSensors() []TempSensor {
 
 func (t *Temperature) Update() {
 	for i := range t.sensors {
-		data, err := os.ReadFile(t.sensors[i].Path)
+		data, err := afero.ReadFile(t.fs, t.sensors[i].Path)
 		if err != nil {
 			Log.Error("temperature", "error", err)
 			continue

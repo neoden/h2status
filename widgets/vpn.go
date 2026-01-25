@@ -1,22 +1,24 @@
 package widgets
 
 import (
-	"os"
 	"path/filepath"
+
+	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
 )
 
 type VPN struct {
+	fs        afero.Fs
 	cfg       config.VPNConfig
 	Active    bool
 	FullRoute bool // true if default route goes through VPN
 	Iface     string
 }
 
-func NewVPN(cfg config.VPNConfig) *VPN {
-	return &VPN{cfg: cfg}
+func NewVPN(cfg config.VPNConfig, fs afero.Fs) *VPN {
+	return &VPN{cfg: cfg, fs: fs}
 }
 
 func (v *VPN) Update() {
@@ -24,9 +26,9 @@ func (v *VPN) Update() {
 	v.FullRoute = false
 	v.Iface = ""
 
-	defaultIface := GetDefaultRouteIface()
+	defaultIface := GetDefaultRouteIface(v.fs)
 
-	entries, err := os.ReadDir("/sys/class/net")
+	entries, err := afero.ReadDir(v.fs, "/sys/class/net")
 	if err != nil {
 		Log.Error("vpn", "error", err)
 		return
@@ -39,7 +41,7 @@ func (v *VPN) Update() {
 		}
 
 		// Check if interface is up
-		operstate, err := os.ReadFile(filepath.Join("/sys/class/net", name, "operstate"))
+		operstate, err := afero.ReadFile(v.fs, filepath.Join("/sys/class/net", name, "operstate"))
 		if err != nil {
 			continue
 		}

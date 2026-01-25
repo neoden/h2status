@@ -3,15 +3,17 @@ package widgets
 import (
 	"bufio"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
 )
 
 type RAM struct {
+	fs        afero.Fs
 	cfg       config.RAMConfig
 	Total     uint64
 	Available uint64
@@ -19,12 +21,12 @@ type RAM struct {
 	Percent   int
 }
 
-func NewRAM(cfg config.RAMConfig) *RAM {
-	return &RAM{cfg: cfg}
+func NewRAM(cfg config.RAMConfig, fs afero.Fs) *RAM {
+	return &RAM{cfg: cfg, fs: fs}
 }
 
 func (r *RAM) Update() {
-	f, err := os.Open("/proc/meminfo")
+	f, err := r.fs.Open("/proc/meminfo")
 	if err != nil {
 		Log.Error("ram", "error", err)
 		return
