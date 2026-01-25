@@ -1,4 +1,4 @@
-package main
+package swaybar
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ type Header struct {
 	StopSignal  int  `json:"stop_signal,omitempty"`
 }
 
-type Body struct {
+type Block struct {
 	FullText            string `json:"full_text"`
 	ShortText           string `json:"short_text,omitempty"`
 	Color               string `json:"color,omitempty"`
@@ -48,27 +48,27 @@ type ClickEvent struct {
 }
 
 func SendHeader() {
-	header_str, _ := json.Marshal(Header{
+	headerStr, _ := json.Marshal(Header{
 		Version:     1,
 		ClickEvents: true,
 	})
 
-	fmt.Println(string(header_str))
+	fmt.Println(string(headerStr))
 	fmt.Println("[")
 }
 
-func MakeBlock(name string, full_text string, urgent bool) string {
-	block := Body{
-		FullText: full_text,
+func MakeBlock(name string, fullText string, urgent bool) string {
+	block := Block{
+		FullText: fullText,
 		Name:     name,
 		Urgent:   urgent,
 	}
-	block_str, err := json.Marshal(block)
+	blockStr, err := json.Marshal(block)
 
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	return string(block_str)
+	return string(blockStr)
 }

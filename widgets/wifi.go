@@ -1,28 +1,32 @@
-package main
+package widgets
 
 import (
 	"fmt"
 
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
+
 	"github.com/mdlayher/wifi"
 )
 
-type WiFiState struct {
+type WiFi struct {
+	cfg       config.WiFiConfig
 	client    *wifi.Client
 	Connected bool
 	SSID      string
 	Signal    int // dBm
 }
 
-func NewWiFiState() *WiFiState {
+func NewWiFi(cfg config.WiFiConfig) *WiFi {
 	client, err := wifi.New()
 	if err != nil {
-		l.Println("wifi init:", err)
-		return &WiFiState{}
+		Log.Error("wifi init", "error", err)
+		return &WiFi{cfg: cfg}
 	}
-	return &WiFiState{client: client}
+	return &WiFi{cfg: cfg, client: client}
 }
 
-func (w *WiFiState) Update() {
+func (w *WiFi) Update() {
 	if w.client == nil {
 		return
 	}
@@ -33,7 +37,7 @@ func (w *WiFiState) Update() {
 
 	interfaces, err := w.client.Interfaces()
 	if err != nil {
-		l.Println("wifi interfaces:", err)
+		Log.Error("wifi interfaces", "error", err)
 		return
 	}
 
@@ -54,13 +58,13 @@ func (w *WiFiState) Update() {
 	}
 }
 
-func (w *WiFiState) GetBlock() string {
+func (w *WiFi) GetBlock() string {
 	if !w.Connected {
 		return ""
 	}
 
 	isHome := false
-	for _, home := range cfg.WiFi.HomeNetworks {
+	for _, home := range w.cfg.HomeNetworks {
 		if w.SSID == home {
 			isHome = true
 			break
@@ -68,17 +72,17 @@ func (w *WiFiState) GetBlock() string {
 	}
 
 	// Determine visibility based on show_mode
-	switch cfg.WiFi.ShowMode {
+	switch w.cfg.ShowMode {
 	case "always":
 		// always show
 	case "unknown":
 		// show if unknown network OR weak signal
-		if isHome && w.Signal >= cfg.WiFi.ShowBelow {
+		if isHome && w.Signal >= w.cfg.ShowBelow {
 			return ""
 		}
 	default: // "weak_signal"
 		// show only when signal is weak
-		if w.Signal >= cfg.WiFi.ShowBelow {
+		if w.Signal >= w.cfg.ShowBelow {
 			return ""
 		}
 	}
@@ -91,6 +95,6 @@ func (w *WiFiState) GetBlock() string {
 		text = fmt.Sprintf("\uf1eb %ddBm", w.Signal)
 	}
 
-	urgent := w.Signal < cfg.WiFi.UrgentBelow
-	return MakeBlock("wifi", text, urgent)
+	urgent := w.Signal < w.cfg.UrgentBelow
+	return swaybar.MakeBlock("wifi", text, urgent)
 }

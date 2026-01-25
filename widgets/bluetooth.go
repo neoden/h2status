@@ -1,9 +1,11 @@
-package main
+package widgets
 
 import (
 	"fmt"
 	"sort"
 	"time"
+
+	"neoden/h2status/swaybar"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -19,20 +21,20 @@ type BluetoothDevice struct {
 	IsAudio     bool
 }
 
-type BluetoothState struct {
+type Bluetooth struct {
 	conn    *dbus.Conn
 	devices map[dbus.ObjectPath]*BluetoothDevice
 	updates chan struct{}
 }
 
-func NewBluetoothState() *BluetoothState {
-	return &BluetoothState{
+func NewBluetooth() *Bluetooth {
+	return &Bluetooth{
 		devices: make(map[dbus.ObjectPath]*BluetoothDevice),
 		updates: make(chan struct{}, 1),
 	}
 }
 
-func (b *BluetoothState) Init() error {
+func (b *Bluetooth) Init() error {
 	conn, err := dbus.ConnectSystemBus()
 	if err != nil {
 		return err
@@ -66,7 +68,11 @@ func (b *BluetoothState) Init() error {
 	return nil
 }
 
-func (b *BluetoothState) updateDevice(path dbus.ObjectPath, props map[string]dbus.Variant) {
+func (b *Bluetooth) Updates() <-chan struct{} {
+	return b.updates
+}
+
+func (b *Bluetooth) updateDevice(path dbus.ObjectPath, props map[string]dbus.Variant) {
 	dev, exists := b.devices[path]
 	if !exists {
 		dev = &BluetoothDevice{Path: path}
@@ -93,7 +99,7 @@ func (b *BluetoothState) updateDevice(path dbus.ObjectPath, props map[string]dbu
 	}
 }
 
-func (b *BluetoothState) listenSignals() {
+func (b *Bluetooth) listenSignals() {
 	ch := make(chan *dbus.Signal, 10)
 	b.conn.Signal(ch)
 
@@ -139,14 +145,14 @@ func (b *BluetoothState) listenSignals() {
 	}
 }
 
-func (b *BluetoothState) notifyUpdate() {
+func (b *Bluetooth) notifyUpdate() {
 	select {
 	case b.updates <- struct{}{}:
 	default:
 	}
 }
 
-func (b *BluetoothState) GetConnectedAudioDevices() []*BluetoothDevice {
+func (b *Bluetooth) GetConnectedAudioDevices() []*BluetoothDevice {
 	var result []*BluetoothDevice
 	for _, dev := range b.devices {
 		if dev.Connected && dev.IsAudio {
@@ -163,7 +169,11 @@ func (b *BluetoothState) GetConnectedAudioDevices() []*BluetoothDevice {
 	return result
 }
 
-func (b *BluetoothState) GetBlock() string {
+func (b *Bluetooth) Update() {
+	// Bluetooth updates via dbus signals, nothing to poll
+}
+
+func (b *Bluetooth) GetBlock() string {
 	devices := b.GetConnectedAudioDevices()
 	if len(devices) == 0 {
 		return ""
@@ -174,5 +184,5 @@ func (b *BluetoothState) GetBlock() string {
 		text += fmt.Sprintf(" +%d", len(devices)-1)
 	}
 
-	return MakeBlock("bluetooth", text, false)
+	return swaybar.MakeBlock("bluetooth", text, false)
 }

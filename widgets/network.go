@@ -1,35 +1,37 @@
-package main
+package widgets
 
 import (
 	"bufio"
 	"os"
 	"strings"
+
+	"neoden/h2status/swaybar"
 )
 
-type NetworkState struct {
+type Network struct {
 	DefaultRouteIface string
 }
 
-func NewNetworkState() *NetworkState {
-	return &NetworkState{}
+func NewNetwork() *Network {
+	return &Network{}
 }
 
-func (n *NetworkState) Update() {
-	n.DefaultRouteIface = getDefaultRouteIface()
+func (n *Network) Update() {
+	n.DefaultRouteIface = GetDefaultRouteIface()
 }
 
-func (n *NetworkState) GetBlock() string {
+func (n *Network) GetBlock() string {
 	if n.DefaultRouteIface != "" {
 		return ""
 	}
-	return MakeBlock("network", "\uf071 No network", true)
+	return swaybar.MakeBlock("network", "\uf071 No network", true)
 }
 
-// getDefaultRouteIface returns the interface name for default route, or empty string if none
-func getDefaultRouteIface() string {
+// GetDefaultRouteIface returns the interface name for default route, or empty string if none
+func GetDefaultRouteIface() string {
 	f, err := os.Open("/proc/net/route")
 	if err != nil {
-		l.Println("network:", err)
+		Log.Error("network", "error", err)
 		return ""
 	}
 	defer f.Close()

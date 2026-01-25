@@ -4,26 +4,94 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
+
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
+	"neoden/h2status/widgets"
 )
 
-var l = log.New(os.Stderr, "", 0)
+type App struct {
+	cfg        *config.Config
+	widgets    []widgets.Widget
+	bluetooth  *widgets.Bluetooth
+	battery    *widgets.Battery
+	clock      *widgets.Clock
+}
 
-var cfg *Config
-var batteryState *BatteryState
-var bluetoothState *BluetoothState
-var cpuState *CPUState
-var ramState *RAMState
-var diskState *DiskState
-var wifiState *WiFiState
-var networkState *NetworkState
-var vpnState *VPNState
-var temperatureState *TemperatureState
+func NewApp(cfg *config.Config) *App {
+	app := &App{
+		cfg:   cfg,
+		clock: widgets.NewClock(cfg.Clock.Format),
+	}
 
-func HandleClickEvents(ch chan ClickEvent) {
-	var event ClickEvent
+	// Initialize widgets based on config
+	if cfg.CPU.Enabled {
+		app.widgets = append(app.widgets, widgets.NewCPU(cfg.CPU))
+	}
+	if cfg.RAM.Enabled {
+		app.widgets = append(app.widgets, widgets.NewRAM(cfg.RAM))
+	}
+	if len(cfg.Temperature) > 0 || true { // always try to auto-detect
+		app.widgets = append(app.widgets, widgets.NewTemperature(cfg.Temperature))
+	}
+	if len(cfg.Disk) > 0 {
+		app.widgets = append(app.widgets, widgets.NewDisk(cfg.Disk))
+	}
+	if cfg.WiFi.Enabled {
+		app.widgets = append(app.widgets, widgets.NewWiFi(cfg.WiFi))
+	}
+	if cfg.Network.Enabled {
+		app.widgets = append(app.widgets, widgets.NewNetwork())
+	}
+	if cfg.VPN.Enabled {
+		app.widgets = append(app.widgets, widgets.NewVPN(cfg.VPN))
+	}
+	if cfg.Bluetooth.Enabled {
+		app.bluetooth = widgets.NewBluetooth()
+		if err := app.bluetooth.Init(); err != nil {
+			fmt.Fprintln(os.Stderr, "bluetooth init:", err)
+		}
+		app.widgets = append(app.widgets, app.bluetooth)
+	}
+	if cfg.Battery.Enabled {
+		app.battery = widgets.NewBattery(cfg.Battery)
+		app.widgets = append(app.widgets, app.battery)
+	}
+
+	return app
+}
+
+func (app *App) Update() {
+	for _, w := range app.widgets {
+		w.Update()
+	}
+}
+
+func (app *App) Render() string {
+	var blocks []string
+
+	for _, w := range app.widgets {
+		if block := w.GetBlock(); block != "" {
+			blocks = append(blocks, block)
+		}
+	}
+
+	// Clock is always last
+	blocks = append(blocks, app.clock.GetBlock())
+
+	return "[" + strings.Join(blocks, ",") + "],"
+}
+
+func (app *App) HandleClick(event swaybar.ClickEvent) {
+	if event.Name == "power_supply" && app.battery != nil {
+		app.battery.HandleClick(event.Button)
+	}
+}
+
+func HandleClickEvents(ch chan swaybar.ClickEvent) {
+	var event swaybar.ClickEvent
 	scanner := bufio.NewScanner(os.Stdin)
 
 	jsonObjects := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -52,149 +120,51 @@ func HandleClickEvents(ch chan ClickEvent) {
 		}
 		err := json.Unmarshal(scanner.Bytes(), &event)
 		if err != nil {
-			fmt.Println(scanner.Text())
 			continue
 		}
 		ch <- event
 	}
 }
 
-func Render() string {
-	blocks := []string{}
-
-	if cpuState != nil {
-		if cpuBlock := cpuState.GetBlock(); cpuBlock != "" {
-			blocks = append(blocks, cpuBlock)
-		}
-	}
-	if ramState != nil {
-		if ramBlock := ramState.GetBlock(); ramBlock != "" {
-			blocks = append(blocks, ramBlock)
-		}
-	}
-	if temperatureState != nil {
-		if tempBlock := temperatureState.GetBlock(); tempBlock != "" {
-			blocks = append(blocks, tempBlock)
-		}
-	}
-	if diskState != nil {
-		if diskBlock := diskState.GetBlock(); diskBlock != "" {
-			blocks = append(blocks, diskBlock)
-		}
-	}
-	if wifiState != nil {
-		if wifiBlock := wifiState.GetBlock(); wifiBlock != "" {
-			blocks = append(blocks, wifiBlock)
-		}
-	}
-	if networkState != nil {
-		if networkBlock := networkState.GetBlock(); networkBlock != "" {
-			blocks = append(blocks, networkBlock)
-		}
-	}
-	if vpnState != nil {
-		if vpnBlock := vpnState.GetBlock(); vpnBlock != "" {
-			blocks = append(blocks, vpnBlock)
-		}
-	}
-	if bluetoothState != nil {
-		if btBlock := bluetoothState.GetBlock(); btBlock != "" {
-			blocks = append(blocks, btBlock)
-		}
-	}
-	if batteryState != nil {
-		if batteryBlock := batteryState.GetBlock(); batteryBlock != "" {
-			blocks = append(blocks, batteryBlock)
-		}
-	}
-	blocks = append(blocks, GetCurrentTimeBlock(cfg.Clock.Format))
-
-	return "[" + strings.Join(blocks, ",") + "],"
-}
-
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--print-sensors" {
-		PrintDetectedSensors()
+		widgets.PrintDetectedSensors()
 		return
 	}
 
-	var err error
-	cfg, err = LoadConfig()
+	cfg, err := config.Load()
 	if err != nil {
-		l.Println("config load:", err)
+		fmt.Fprintln(os.Stderr, "config load:", err)
 	}
 
-	if cfg.Battery.Enabled {
-		batteryState = NewBatteryState()
-	}
-	if cfg.Bluetooth.Enabled {
-		bluetoothState = NewBluetoothState()
-		if err := bluetoothState.Init(); err != nil {
-			l.Println("bluetooth init:", err)
-		}
-	}
-	if cfg.CPU.Enabled {
-		cpuState = NewCPUState(cfg.CPU.AverageSeconds)
-	}
-	if cfg.RAM.Enabled {
-		ramState = NewRAMState()
-	}
-	if len(cfg.Disk) > 0 {
-		diskState = NewDiskState()
-	}
-	if cfg.WiFi.Enabled {
-		wifiState = NewWiFiState()
-	}
-	if cfg.Network.Enabled {
-		networkState = NewNetworkState()
-	}
-	if cfg.VPN.Enabled {
-		vpnState = NewVPNState()
-	}
-	temperatureState = NewTemperatureState()
+	app := NewApp(cfg)
 
-	SendHeader()
+	swaybar.SendHeader()
 
-	clockCh := make(chan uint64)
-	eventsCh := make(chan ClickEvent)
+	tickCh, err := widgets.StartTicker(1, 0)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "timer:", err)
+		os.Exit(1)
+	}
 
-	go StartClock(clockCh, 1, 0)
+	eventsCh := make(chan swaybar.ClickEvent)
 	go HandleClickEvents(eventsCh)
+
+	// Get bluetooth updates channel if available
+	var bluetoothCh <-chan struct{}
+	if app.bluetooth != nil {
+		bluetoothCh = app.bluetooth.Updates()
+	}
 
 	for {
 		select {
-		case <-clockCh:
-			if batteryState != nil {
-				batteryState.Update()
-			}
-			if cpuState != nil {
-				cpuState.Update()
-			}
-			if ramState != nil {
-				ramState.Update()
-			}
-			if diskState != nil {
-				diskState.Update()
-			}
-			if wifiState != nil {
-				wifiState.Update()
-			}
-			if networkState != nil {
-				networkState.Update()
-			}
-			if vpnState != nil {
-				vpnState.Update()
-			}
-			if temperatureState != nil {
-				temperatureState.Update()
-			}
-		case <-bluetoothState.updates:
+		case <-tickCh:
+			app.Update()
+		case <-bluetoothCh:
 			// bluetooth state updated, just re-render
 		case event := <-eventsCh:
-			if event.Name == "power_supply" {
-				batteryState.Mode = (batteryState.Mode + 1) % 2
-			}
+			app.HandleClick(event)
 		}
-		fmt.Println(Render())
+		fmt.Println(app.Render())
 	}
 }

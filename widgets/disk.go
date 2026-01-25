@@ -1,8 +1,11 @@
-package main
+package widgets
 
 import (
 	"fmt"
 	"strings"
+
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
 
 	"golang.org/x/sys/unix"
 )
@@ -18,21 +21,23 @@ type DiskInfo struct {
 	Unit        string
 }
 
-type DiskState struct {
+type Disk struct {
+	cfgs  []config.DiskConfig
 	disks []DiskInfo
 }
 
-func NewDiskState() *DiskState {
-	return &DiskState{
-		disks: make([]DiskInfo, len(cfg.Disk)),
+func NewDisk(cfgs []config.DiskConfig) *Disk {
+	return &Disk{
+		cfgs:  cfgs,
+		disks: make([]DiskInfo, len(cfgs)),
 	}
 }
 
-func (d *DiskState) Update() {
-	for i, diskCfg := range cfg.Disk {
+func (d *Disk) Update() {
+	for i, diskCfg := range d.cfgs {
 		var stat unix.Statfs_t
 		if err := unix.Statfs(diskCfg.Path, &stat); err != nil {
-			l.Println("disk:", err)
+			Log.Error("disk", "error", err)
 			continue
 		}
 
@@ -69,10 +74,10 @@ func (d *DiskState) Update() {
 	}
 }
 
-func (d *DiskState) GetBlock() string {
+func (d *Disk) GetBlock() string {
 	var parts []string
 	var anyUrgent bool
-	showMultiple := len(cfg.Disk) > 1
+	showMultiple := len(d.cfgs) > 1
 
 	for _, disk := range d.disks {
 		var value int
@@ -94,7 +99,7 @@ func (d *DiskState) GetBlock() string {
 		if disk.Unit == "percent" {
 			valueStr = fmt.Sprintf("%d%%", disk.FreePercent)
 		} else {
-			valueStr = formatBytes(disk.Free)
+			valueStr = FormatBytes(disk.Free)
 		}
 
 		if showMultiple {
@@ -109,5 +114,5 @@ func (d *DiskState) GetBlock() string {
 	}
 
 	text := "\uf0a0 " + strings.Join(parts, " | ")
-	return MakeBlock("disk", text, anyUrgent)
+	return swaybar.MakeBlock("disk", text, anyUrgent)
 }

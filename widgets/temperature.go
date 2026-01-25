@@ -1,4 +1,4 @@
-package main
+package widgets
 
 import (
 	"fmt"
@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
 )
 
 type TempSensor struct {
@@ -13,19 +16,19 @@ type TempSensor struct {
 	Label       string
 	ShowAbove   int
 	UrgentAbove int
-	Value       int // current temperature in °C
+	Value       int // current temperature in C
 }
 
-type TemperatureState struct {
+type Temperature struct {
 	sensors []TempSensor
 }
 
-func NewTemperatureState() *TemperatureState {
-	t := &TemperatureState{}
+func NewTemperature(cfgs []config.TemperatureConfig) *Temperature {
+	t := &Temperature{}
 
-	if len(cfg.Temperature) > 0 {
+	if len(cfgs) > 0 {
 		// Use configured sensors
-		for _, tc := range cfg.Temperature {
+		for _, tc := range cfgs {
 			t.sensors = append(t.sensors, TempSensor{
 				Path:        tc.Path,
 				Label:       tc.Label,
@@ -167,11 +170,11 @@ func autoDetectTempSensors() []TempSensor {
 	return sensors
 }
 
-func (t *TemperatureState) Update() {
+func (t *Temperature) Update() {
 	for i := range t.sensors {
 		data, err := os.ReadFile(t.sensors[i].Path)
 		if err != nil {
-			l.Println("temperature:", err)
+			Log.Error("temperature", "error", err)
 			continue
 		}
 
@@ -185,7 +188,7 @@ func (t *TemperatureState) Update() {
 	}
 }
 
-func (t *TemperatureState) GetBlock() string {
+func (t *Temperature) GetBlock() string {
 	var parts []string
 	var anyUrgent bool
 	showMultiple := len(t.sensors) > 1
@@ -211,5 +214,5 @@ func (t *TemperatureState) GetBlock() string {
 	}
 
 	text := "\uf2c9 " + strings.Join(parts, " | ")
-	return MakeBlock("temperature", text, anyUrgent)
+	return swaybar.MakeBlock("temperature", text, anyUrgent)
 }

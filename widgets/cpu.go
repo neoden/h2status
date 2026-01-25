@@ -1,4 +1,4 @@
-package main
+package widgets
 
 import (
 	"bufio"
@@ -6,6 +6,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
 )
 
 type CPUSnapshot struct {
@@ -26,23 +29,23 @@ type CPUUsage struct {
 	PerCore []float64
 }
 
-type CPUState struct {
+type CPU struct {
+	cfg          config.CPUConfig
 	prevSnapshot *CPUSnapshot
 	history      []CPUUsage
-	historySize  int
 }
 
-func NewCPUState(historySize int) *CPUState {
-	return &CPUState{
-		history:     make([]CPUUsage, 0, historySize),
-		historySize: historySize,
+func NewCPU(cfg config.CPUConfig) *CPU {
+	return &CPU{
+		cfg:     cfg,
+		history: make([]CPUUsage, 0, cfg.AverageSeconds),
 	}
 }
 
-func (c *CPUState) Update() {
+func (c *CPU) Update() {
 	snapshot, err := readCPUSnapshot()
 	if err != nil {
-		l.Println("cpu:", err)
+		Log.Error("cpu", "error", err)
 		return
 	}
 
@@ -54,15 +57,15 @@ func (c *CPUState) Update() {
 	c.prevSnapshot = snapshot
 }
 
-func (c *CPUState) addToHistory(usage CPUUsage) {
-	if len(c.history) >= c.historySize {
+func (c *CPU) addToHistory(usage CPUUsage) {
+	if len(c.history) >= c.cfg.AverageSeconds {
 		copy(c.history, c.history[1:])
-		c.history = c.history[:c.historySize-1]
+		c.history = c.history[:c.cfg.AverageSeconds-1]
 	}
 	c.history = append(c.history, usage)
 }
 
-func (c *CPUState) GetAverageUsage() *CPUUsage {
+func (c *CPU) GetAverageUsage() *CPUUsage {
 	if len(c.history) == 0 {
 		return nil
 	}
@@ -88,7 +91,7 @@ func (c *CPUState) GetAverageUsage() *CPUUsage {
 	return &avg
 }
 
-func (c *CPUState) GetBlock() string {
+func (c *CPU) GetBlock() string {
 	avg := c.GetAverageUsage()
 	if avg == nil {
 		return ""
@@ -101,12 +104,12 @@ func (c *CPUState) GetBlock() string {
 		if core > maxCore {
 			maxCore = core
 		}
-		if core > float64(cfg.CPU.ShowCoreAbove) {
+		if core > float64(c.cfg.ShowCoreAbove) {
 			hotCores++
 		}
 	}
 
-	showTotal := avg.Total > float64(cfg.CPU.ShowAbove)
+	showTotal := avg.Total > float64(c.cfg.ShowAbove)
 	showCores := hotCores > 0
 
 	if !showTotal && !showCores {
@@ -120,8 +123,8 @@ func (c *CPUState) GetBlock() string {
 		text = fmt.Sprintf("\uf2db %d%%", int(avg.Total))
 	}
 
-	urgent := avg.Total > float64(cfg.CPU.UrgentAbove)
-	return MakeBlock("cpu", text, urgent)
+	urgent := avg.Total > float64(c.cfg.UrgentAbove)
+	return swaybar.MakeBlock("cpu", text, urgent)
 }
 
 func readCPUSnapshot() (*CPUSnapshot, error) {

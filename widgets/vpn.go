@@ -1,36 +1,40 @@
-package main
+package widgets
 
 import (
 	"os"
 	"path/filepath"
+
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
 )
 
-type VPNState struct {
+type VPN struct {
+	cfg       config.VPNConfig
 	Active    bool
 	FullRoute bool // true if default route goes through VPN
 	Iface     string
 }
 
-func NewVPNState() *VPNState {
-	return &VPNState{}
+func NewVPN(cfg config.VPNConfig) *VPN {
+	return &VPN{cfg: cfg}
 }
 
-func (v *VPNState) Update() {
+func (v *VPN) Update() {
 	v.Active = false
 	v.FullRoute = false
 	v.Iface = ""
 
-	defaultIface := getDefaultRouteIface()
+	defaultIface := GetDefaultRouteIface()
 
 	entries, err := os.ReadDir("/sys/class/net")
 	if err != nil {
-		l.Println("vpn:", err)
+		Log.Error("vpn", "error", err)
 		return
 	}
 
 	for _, entry := range entries {
 		name := entry.Name()
-		if !matchesVPNPattern(name) {
+		if !v.matchesPattern(name) {
 			continue
 		}
 
@@ -52,8 +56,8 @@ func (v *VPNState) Update() {
 	}
 }
 
-func matchesVPNPattern(name string) bool {
-	for _, pattern := range cfg.VPN.Interfaces {
+func (v *VPN) matchesPattern(name string) bool {
+	for _, pattern := range v.cfg.Interfaces {
 		matched, err := filepath.Match(pattern, name)
 		if err == nil && matched {
 			return true
@@ -62,7 +66,7 @@ func matchesVPNPattern(name string) bool {
 	return false
 }
 
-func (v *VPNState) GetBlock() string {
+func (v *VPN) GetBlock() string {
 	if !v.Active {
 		return ""
 	}
@@ -74,5 +78,5 @@ func (v *VPNState) GetBlock() string {
 		text = "\uf09c " // unlock icon - split tunneling
 	}
 
-	return MakeBlock("vpn", text, false)
+	return swaybar.MakeBlock("vpn", text, false)
 }

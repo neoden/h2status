@@ -1,0 +1,155 @@
+package widgets
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"neoden/h2status/config"
+	"neoden/h2status/swaybar"
+)
+
+const (
+	BatteryModePercentage    = 0
+	BatteryModeRemainingTime = 1
+)
+
+type BatteryInfo struct {
+	Path       string
+	Status     string
+	EnergyFull int
+	EnergyNow  int
+	PowerNow   int
+}
+
+type Battery struct {
+	cfg        config.BatteryConfig
+	batteries  []BatteryInfo
+	Present    bool
+	Percentage int
+	EnergyFull int
+	EnergyNow  int
+	PowerNow   int
+	Remaining  time.Duration
+	IsCharging bool
+	Mode       int
+}
+
+func NewBattery(cfg config.BatteryConfig) *Battery {
+	return &Battery{cfg: cfg}
+}
+
+func (b *Battery) Update() {
+	b.batteries = nil
+	b.Present = false
+	b.EnergyFull = 0
+	b.EnergyNow = 0
+	b.PowerNow = 0
+	b.IsCharging = false
+
+	// Find all batteries
+	matches, err := filepath.Glob("/sys/class/power_supply/BAT*")
+	if err != nil || len(matches) == 0 {
+		return
+	}
+
+	for _, path := range matches {
+		bat := BatteryInfo{Path: path}
+
+		// Check if battery is present
+		if _, err := os.Stat(filepath.Join(path, "capacity")); os.IsNotExist(err) {
+			continue
+		}
+
+		// Read status
+		status, err := os.ReadFile(filepath.Join(path, "status"))
+		if err != nil {
+			continue
+		}
+		bat.Status = strings.TrimSpace(string(status))
+
+		// Read energy values
+		bat.EnergyFull, _ = ReadInt(filepath.Join(path, "energy_full"))
+		bat.EnergyNow, _ = ReadInt(filepath.Join(path, "energy_now"))
+		bat.PowerNow, _ = ReadInt(filepath.Join(path, "power_now"))
+
+		// If energy_* not available, try charge_* (some systems use this)
+		if bat.EnergyFull == 0 {
+			bat.EnergyFull, _ = ReadInt(filepath.Join(path, "charge_full"))
+			bat.EnergyNow, _ = ReadInt(filepath.Join(path, "charge_now"))
+			bat.PowerNow, _ = ReadInt(filepath.Join(path, "current_now"))
+		}
+
+		b.batteries = append(b.batteries, bat)
+
+		// Accumulate totals
+		b.EnergyFull += bat.EnergyFull
+		b.EnergyNow += bat.EnergyNow
+		b.PowerNow += bat.PowerNow
+
+		if bat.Status == "Charging" {
+			b.IsCharging = true
+		}
+	}
+
+	if len(b.batteries) == 0 {
+		return
+	}
+
+	b.Present = true
+
+	// Calculate combined percentage
+	if b.EnergyFull > 0 {
+		b.Percentage = 100 * b.EnergyNow / b.EnergyFull
+	}
+
+	// Calculate remaining time
+	if b.PowerNow > 0 {
+		if b.IsCharging {
+			b.Remaining = time.Duration((b.EnergyFull-b.EnergyNow)*1000/b.PowerNow) * time.Hour / 1000
+		} else {
+			b.Remaining = time.Duration(b.EnergyNow*1000/b.PowerNow) * time.Hour / 1000
+		}
+	}
+}
+
+func (b *Battery) GetBlock() string {
+	if !b.Present {
+		return ""
+	}
+
+	if b.IsCharging && b.Percentage > b.cfg.HideChargingAbove {
+		return ""
+	}
+	if !b.IsCharging && b.Percentage > b.cfg.HideDischargingAbove {
+		return ""
+	}
+
+	symbols := [6]string{"\uf244", "\uf243", "\uf242", "\uf241", "\uf240", "\uf240"}
+	var symbol string
+	var text string
+
+	if b.IsCharging {
+		symbol = "\uf1e6"
+	} else {
+		idx := b.Percentage / 20
+		if idx > 5 {
+			idx = 5
+		}
+		symbol = symbols[idx]
+	}
+
+	if b.Mode == BatteryModePercentage {
+		text = fmt.Sprintf("%s %d%%", symbol, b.Percentage)
+	} else if b.Mode == BatteryModeRemainingTime {
+		text = fmt.Sprintf("%s %s", symbol, FormatDuration(b.Remaining))
+	}
+
+	return swaybar.MakeBlock("power_supply", text, b.Percentage < b.cfg.UrgentBelow)
+}
+
+func (b *Battery) HandleClick(button int) {
+	b.Mode = (b.Mode + 1) % 2
+}

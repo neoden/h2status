@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -68,19 +68,19 @@ type TemperatureConfig struct {
 }
 
 type Config struct {
-	Clock     ClockConfig     `toml:"clock"`
-	Battery   BatteryConfig   `toml:"battery"`
-	Bluetooth BluetoothConfig `toml:"bluetooth"`
-	CPU       CPUConfig       `toml:"cpu"`
-	RAM       RAMConfig       `toml:"ram"`
-	Disk      []DiskConfig    `toml:"disk"`
-	WiFi      WiFiConfig      `toml:"wifi"`
-	Network   NetworkConfig   `toml:"network"`
+	Clock       ClockConfig         `toml:"clock"`
+	Battery     BatteryConfig       `toml:"battery"`
+	Bluetooth   BluetoothConfig     `toml:"bluetooth"`
+	CPU         CPUConfig           `toml:"cpu"`
+	RAM         RAMConfig           `toml:"ram"`
+	Disk        []DiskConfig        `toml:"disk"`
+	WiFi        WiFiConfig          `toml:"wifi"`
+	Network     NetworkConfig       `toml:"network"`
 	VPN         VPNConfig           `toml:"vpn"`
 	Temperature []TemperatureConfig `toml:"temperature"`
 }
 
-func DefaultConfig() *Config {
+func Default() *Config {
 	return &Config{
 		Clock: ClockConfig{
 			Format: "15:04",
@@ -131,8 +131,8 @@ func DefaultConfig() *Config {
 	}
 }
 
-func LoadConfig() (*Config, error) {
-	cfg := DefaultConfig()
+func Load() (*Config, error) {
+	cfg := Default()
 
 	configDir, err := os.UserConfigDir()
 	if err != nil {
