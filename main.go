@@ -15,11 +15,11 @@ import (
 )
 
 type App struct {
-	cfg        *config.Config
-	widgets    []widgets.Widget
-	bluetooth  *widgets.Bluetooth
-	battery    *widgets.Battery
-	clock      *widgets.Clock
+	cfg       *config.Config
+	widgets   []widgets.Widget
+	bluetooth *widgets.Bluetooth
+	battery   *widgets.Battery
+	clock     *widgets.Clock
 }
 
 func NewApp(cfg *config.Config) *App {

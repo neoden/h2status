@@ -24,8 +24,7 @@ type Block struct {
 	BorderBottom        int    `json:"border_bottom,omitempty"`
 	BorderLeft          int    `json:"border_left,omitempty"`
 	BorderRight         int    `json:"border_right,omitempty"`
-	MinWidthInt         int    `json:"min_width,omitempty"`
-	MinWidthString      string `json:"min_width,omitempty"`
+	MinWidth            int    `json:"min_width,omitempty"`
 	Align               string `json:"align,omitempty"`
 	Name                string `json:"name,omitempty"`
 	Instance            string `json:"instance,omitempty"`

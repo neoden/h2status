@@ -138,7 +138,7 @@ func TestBluetooth_GetConnectedAudioDevices_Filters(t *testing.T) {
 	b := NewBluetooth()
 
 	b.devices["/dev1"] = &BluetoothDevice{Name: "Audio1", Connected: true, IsAudio: true}
-	b.devices["/dev2"] = &BluetoothDevice{Name: "Audio2", Connected: false, IsAudio: true}  // disconnected
+	b.devices["/dev2"] = &BluetoothDevice{Name: "Audio2", Connected: false, IsAudio: true}   // disconnected
 	b.devices["/dev3"] = &BluetoothDevice{Name: "Keyboard", Connected: true, IsAudio: false} // not audio
 	b.devices["/dev4"] = &BluetoothDevice{Name: "Audio3", Connected: true, IsAudio: true}
 

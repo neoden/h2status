@@ -57,7 +57,7 @@ func TestBattery_RemainingTimeCalculation(t *testing.T) {
 		},
 		{
 			name:       "30 minutes discharging",
-			energyNow:  5000000, // 5Wh
+			energyNow:  5000000,  // 5Wh
 			powerNow:   10000000, // 10W
 			isCharging: false,
 			expected:   30 * time.Minute,
@@ -198,54 +198,54 @@ func TestBattery_HandleClick(t *testing.T) {
 
 func TestBattery_HideLogic(t *testing.T) {
 	tests := []struct {
-		name               string
-		percentage         int
-		isCharging         bool
-		hideChargingAbove  int
+		name                 string
+		percentage           int
+		isCharging           bool
+		hideChargingAbove    int
 		hideDischargingAbove int
-		shouldHide         bool
+		shouldHide           bool
 	}{
 		{
-			name:               "charging above threshold - hide",
-			percentage:         99,
-			isCharging:         true,
-			hideChargingAbove:  98,
-			shouldHide:         true,
+			name:              "charging above threshold - hide",
+			percentage:        99,
+			isCharging:        true,
+			hideChargingAbove: 98,
+			shouldHide:        true,
 		},
 		{
-			name:               "charging below threshold - show",
-			percentage:         50,
-			isCharging:         true,
-			hideChargingAbove:  98,
-			shouldHide:         false,
+			name:              "charging below threshold - show",
+			percentage:        50,
+			isCharging:        true,
+			hideChargingAbove: 98,
+			shouldHide:        false,
 		},
 		{
-			name:               "discharging above threshold - hide",
-			percentage:         50,
-			isCharging:         false,
+			name:                 "discharging above threshold - hide",
+			percentage:           50,
+			isCharging:           false,
 			hideDischargingAbove: 20,
-			shouldHide:         true,
+			shouldHide:           true,
 		},
 		{
-			name:               "discharging below threshold - show",
-			percentage:         15,
-			isCharging:         false,
+			name:                 "discharging below threshold - show",
+			percentage:           15,
+			isCharging:           false,
 			hideDischargingAbove: 20,
-			shouldHide:         false,
+			shouldHide:           false,
 		},
 		{
-			name:               "charging at threshold - show",
-			percentage:         98,
-			isCharging:         true,
-			hideChargingAbove:  98,
-			shouldHide:         false,
+			name:              "charging at threshold - show",
+			percentage:        98,
+			isCharging:        true,
+			hideChargingAbove: 98,
+			shouldHide:        false,
 		},
 		{
-			name:               "discharging at threshold - show",
-			percentage:         20,
-			isCharging:         false,
+			name:                 "discharging at threshold - show",
+			percentage:           20,
+			isCharging:           false,
 			hideDischargingAbove: 20,
-			shouldHide:         false,
+			shouldHide:           false,
 		},
 	}
 

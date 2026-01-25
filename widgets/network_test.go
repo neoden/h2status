@@ -195,4 +195,3 @@ eth0	00000000	0101A8C0	0003	0	0	100	00000000	0	0	0
 		t.Errorf("GetDefaultRouteIface() = %q, want eth0", result)
 	}
 }
-

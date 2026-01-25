@@ -8,10 +8,10 @@ import (
 
 func TestMakeBlock(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		blockName string
-		fullText string
-		urgent   bool
+		fullText  string
+		urgent    bool
 	}{
 		{"simple block", "cpu", "CPU 50%", false},
 		{"urgent block", "battery", "BAT 5%", true},

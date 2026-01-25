@@ -99,8 +99,8 @@ func TestTemperature_GetBlock_MultipleSensors(t *testing.T) {
 func TestTemperature_GetBlock_PartialShow(t *testing.T) {
 	temp := &Temperature{
 		sensors: []TempSensor{
-			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80},  // shown
-			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 50},  // hidden
+			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80}, // shown
+			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 50}, // hidden
 		},
 	}
 
@@ -130,8 +130,8 @@ func TestTemperature_GetBlock_AllHidden(t *testing.T) {
 func TestTemperature_AnyUrgent(t *testing.T) {
 	temp := &Temperature{
 		sensors: []TempSensor{
-			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80},  // not urgent
-			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 95},  // urgent
+			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80}, // not urgent
+			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 95}, // urgent
 		},
 	}
 
