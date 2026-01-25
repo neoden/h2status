@@ -9,3 +9,10 @@ urgent_below = 10
 
 [bluetooth]
 enabled = true
+
+[cpu]
+enabled = true
+show_above = 50
+show_core_above = 95
+average_seconds = 5
+urgent_above = 95
