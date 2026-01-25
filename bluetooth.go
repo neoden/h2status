@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -10,10 +12,11 @@ import (
 const audioSinkUUID = "0000110b-0000-1000-8000-00805f9b34fb"
 
 type BluetoothDevice struct {
-	Path      dbus.ObjectPath
-	Name      string
-	Connected bool
-	IsAudio   bool
+	Path        dbus.ObjectPath
+	Name        string
+	Connected   bool
+	ConnectedAt time.Time
+	IsAudio     bool
 }
 
 type BluetoothState struct {
@@ -74,7 +77,11 @@ func (b *BluetoothState) updateDevice(path dbus.ObjectPath, props map[string]dbu
 		dev.Name = name.Value().(string)
 	}
 	if connected, ok := props["Connected"]; ok {
+		wasConnected := dev.Connected
 		dev.Connected = connected.Value().(bool)
+		if dev.Connected && !wasConnected {
+			dev.ConnectedAt = time.Now()
+		}
 	}
 	if uuids, ok := props["UUIDs"]; ok {
 		for _, uuid := range uuids.Value().([]string) {
@@ -146,6 +153,13 @@ func (b *BluetoothState) GetConnectedAudioDevices() []*BluetoothDevice {
 			result = append(result, dev)
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		// Sort by connection time, earliest first; fallback to alphabetical
+		if result[i].ConnectedAt.Equal(result[j].ConnectedAt) {
+			return result[i].Name < result[j].Name
+		}
+		return result[i].ConnectedAt.Before(result[j].ConnectedAt)
+	})
 	return result
 }
 
