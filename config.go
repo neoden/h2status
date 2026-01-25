@@ -18,13 +18,21 @@ type BluetoothConfig struct {
 	Enabled bool `toml:"enabled"`
 }
 
+type ClockConfig struct {
+	Format string `toml:"format"`
+}
+
 type Config struct {
+	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
 	Bluetooth BluetoothConfig `toml:"bluetooth"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
+		Clock: ClockConfig{
+			Format: "15:04",
+		},
 		Battery: BatteryConfig{
 			Enabled:              true,
 			HideChargingAbove:    98,

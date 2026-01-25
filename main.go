@@ -65,7 +65,7 @@ func Render() string {
 			blocks = append(blocks, batteryBlock)
 		}
 	}
-	blocks = append(blocks, GetCurrentTimeBlock("15:04"))
+	blocks = append(blocks, GetCurrentTimeBlock(cfg.Clock.Format))
 
 	return "[" + strings.Join(blocks, ",") + "],"
 }

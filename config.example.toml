@@ -1,3 +1,6 @@
+[clock]
+format = "15:04"
+
 [battery]
 enabled = true
 hide_charging_above = 98
