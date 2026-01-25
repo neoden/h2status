@@ -20,6 +20,7 @@ var diskState *DiskState
 var wifiState *WiFiState
 var networkState *NetworkState
 var vpnState *VPNState
+var temperatureState *TemperatureState
 
 func HandleClickEvents(ch chan ClickEvent) {
 	var event ClickEvent
@@ -69,6 +70,11 @@ func Render() string {
 	if ramState != nil {
 		if ramBlock := ramState.GetBlock(); ramBlock != "" {
 			blocks = append(blocks, ramBlock)
+		}
+	}
+	if temperatureState != nil {
+		if tempBlock := temperatureState.GetBlock(); tempBlock != "" {
+			blocks = append(blocks, tempBlock)
 		}
 	}
 	if diskState != nil {
@@ -140,6 +146,7 @@ func main() {
 	if cfg.VPN.Enabled {
 		vpnState = NewVPNState()
 	}
+	temperatureState = NewTemperatureState()
 
 	SendHeader()
 
@@ -172,6 +179,9 @@ func main() {
 			}
 			if vpnState != nil {
 				vpnState.Update()
+			}
+			if temperatureState != nil {
+				temperatureState.Update()
 			}
 		case <-bluetoothState.updates:
 			// bluetooth state updated, just re-render

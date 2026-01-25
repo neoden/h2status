@@ -60,6 +60,13 @@ type VPNConfig struct {
 	Interfaces []string `toml:"interfaces"`
 }
 
+type TemperatureConfig struct {
+	Path        string `toml:"path"`
+	Label       string `toml:"label"`
+	ShowAbove   int    `toml:"show_above"`
+	UrgentAbove int    `toml:"urgent_above"`
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
@@ -69,7 +76,8 @@ type Config struct {
 	Disk      []DiskConfig    `toml:"disk"`
 	WiFi      WiFiConfig      `toml:"wifi"`
 	Network   NetworkConfig   `toml:"network"`
-	VPN       VPNConfig       `toml:"vpn"`
+	VPN         VPNConfig           `toml:"vpn"`
+	Temperature []TemperatureConfig `toml:"temperature"`
 }
 
 func DefaultConfig() *Config {

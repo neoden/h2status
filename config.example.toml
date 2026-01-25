@@ -41,3 +41,10 @@ enabled = true  # shows warning when no default route
 [vpn]
 enabled = true
 interfaces = ["tun*", "wg*", "tap*", "cscotun*"]
+
+# Temperature: auto-detects if not configured
+# [[temperature]]
+# path = "/sys/class/thermal/thermal_zone0/temp"
+# label = "CPU"
+# show_above = 75
+# urgent_above = 90
