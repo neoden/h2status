@@ -3,6 +3,7 @@ package widgets
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"neoden/h2status/swaybar"
@@ -24,6 +25,7 @@ type BluetoothDevice struct {
 type Bluetooth struct {
 	conn    *dbus.Conn
 	devices map[dbus.ObjectPath]*BluetoothDevice
+	mu      sync.RWMutex
 	updates chan struct{}
 }
 
@@ -77,6 +79,9 @@ func (b *Bluetooth) Updates() <-chan struct{} {
 }
 
 func (b *Bluetooth) updateDevice(path dbus.ObjectPath, props map[string]dbus.Variant) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	dev, exists := b.devices[path]
 	if !exists {
 		dev = &BluetoothDevice{Path: path}
@@ -160,7 +165,9 @@ func (b *Bluetooth) handleSignal(signal *dbus.Signal) {
 		}
 		for _, iface := range ifaces {
 			if iface == "org.bluez.Device1" {
+				b.mu.Lock()
 				delete(b.devices, path)
+				b.mu.Unlock()
 				b.notifyUpdate()
 				break
 			}
@@ -176,12 +183,15 @@ func (b *Bluetooth) notifyUpdate() {
 }
 
 func (b *Bluetooth) GetConnectedAudioDevices() []*BluetoothDevice {
+	b.mu.RLock()
 	var result []*BluetoothDevice
 	for _, dev := range b.devices {
 		if dev.Connected && dev.IsAudio {
 			result = append(result, dev)
 		}
 	}
+	b.mu.RUnlock()
+
 	sort.Slice(result, func(i, j int) bool {
 		// Sort by connection time, earliest first; fallback to alphabetical
 		if result[i].ConnectedAt.Equal(result[j].ConnectedAt) {

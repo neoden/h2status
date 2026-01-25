@@ -68,11 +68,8 @@ func MakeBlock(name string, fullText string, urgent bool) string {
 		Urgent:   urgent,
 	}
 	blockStr, err := json.Marshal(block)
-
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		panic("swaybar: failed to marshal block: " + err.Error())
 	}
-
 	return string(blockStr)
 }

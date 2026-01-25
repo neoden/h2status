@@ -86,7 +86,7 @@ func StartTicker(seconds int64, nanoseconds int64) (<-chan uint64, error) {
 				}
 				break
 			}
-			ch <- binary.BigEndian.Uint64(buffer)
+			ch <- binary.NativeEndian.Uint64(buffer)
 		}
 	}()
 
