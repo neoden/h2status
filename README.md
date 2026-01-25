@@ -23,6 +23,12 @@ All widgets are threshold-based: they only appear when something needs attention
 
 ## Installation
 
+### Arch Linux
+
+```sh
+yay -S h2status-git
+```
+
 ### Binary
 
 Download from [Releases](../../releases):
@@ -93,7 +99,3 @@ h2status --print-sensors
 Issues are welcome — bug reports, feature requests, questions.
 
 For code changes, please open an issue first to discuss. This helps avoid wasted effort on both sides.
-
-## License
-
-MIT
