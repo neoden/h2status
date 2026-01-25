@@ -30,11 +30,18 @@ type CPUConfig struct {
 	UrgentAbove    int  `toml:"urgent_above"`
 }
 
+type RAMConfig struct {
+	Enabled     bool `toml:"enabled"`
+	ShowAbove   int  `toml:"show_above"`
+	UrgentAbove int  `toml:"urgent_above"`
+}
+
 type Config struct {
 	Clock     ClockConfig     `toml:"clock"`
 	Battery   BatteryConfig   `toml:"battery"`
 	Bluetooth BluetoothConfig `toml:"bluetooth"`
 	CPU       CPUConfig       `toml:"cpu"`
+	RAM       RAMConfig       `toml:"ram"`
 }
 
 func DefaultConfig() *Config {
@@ -57,6 +64,11 @@ func DefaultConfig() *Config {
 			ShowCoreAbove:  95,
 			AverageSeconds: 5,
 			UrgentAbove:    95,
+		},
+		RAM: RAMConfig{
+			Enabled:     true,
+			ShowAbove:   70,
+			UrgentAbove: 90,
 		},
 	}
 }
