@@ -45,9 +45,10 @@ type DiskConfig struct {
 
 type WiFiConfig struct {
 	Enabled      bool     `toml:"enabled"`
+	ShowMode     string   `toml:"show_mode"`     // "weak_signal", "unknown", "always"
 	ShowBelow    int      `toml:"show_below"`    // signal strength in dBm (e.g. -70)
 	UrgentBelow  int      `toml:"urgent_below"`
-	HomeNetworks []string `toml:"home_networks"` // hide these SSIDs when signal is good
+	HomeNetworks []string `toml:"home_networks"` // used when show_mode = "unknown"
 }
 
 type NetworkConfig struct {
@@ -107,6 +108,7 @@ func DefaultConfig() *Config {
 		},
 		WiFi: WiFiConfig{
 			Enabled:      true,
+			ShowMode:     "weak_signal",
 			ShowBelow:    -70,
 			UrgentBelow:  -80,
 			HomeNetworks: []string{},

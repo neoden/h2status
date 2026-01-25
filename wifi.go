@@ -67,17 +67,23 @@ func (w *WiFiState) GetBlock() string {
 		}
 	}
 
-	// Hide if home network and signal is good
-	if isHome && w.Signal >= cfg.WiFi.ShowBelow {
-		return ""
+	// Determine visibility based on show_mode
+	switch cfg.WiFi.ShowMode {
+	case "always":
+		// always show
+	case "unknown":
+		// show if unknown network OR weak signal
+		if isHome && w.Signal >= cfg.WiFi.ShowBelow {
+			return ""
+		}
+	default: // "weak_signal"
+		// show only when signal is weak
+		if w.Signal >= cfg.WiFi.ShowBelow {
+			return ""
+		}
 	}
 
-	// Hide if signal is good and no home networks configured (show only weak signal)
-	if len(cfg.WiFi.HomeNetworks) == 0 && w.Signal >= cfg.WiFi.ShowBelow {
-		return ""
-	}
-
-	// Show network name if not home, or signal strength if weak
+	// Show network name if not home, or just signal if home
 	var text string
 	if !isHome {
 		text = fmt.Sprintf("\uf1eb %s %ddBm", w.SSID, w.Signal)

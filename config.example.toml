@@ -30,9 +30,10 @@ unit = "gb"  # "gb" or "percent"
 
 [wifi]
 enabled = true
-show_below = -70   # dBm, show when signal weaker than this
+show_mode = "weak_signal"  # "weak_signal", "unknown", "always"
+show_below = -70           # dBm, show when signal weaker than this
 urgent_below = -80
-home_networks = ["MyHomeWiFi"]  # hide these when signal is good
+home_networks = ["MyHomeWiFi"]  # used when show_mode = "unknown"
 
 [network]
 enabled = true  # shows warning when no default route
