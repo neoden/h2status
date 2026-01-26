@@ -3,6 +3,7 @@ package widgets
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
+	"neoden/h2status/util"
 )
 
 type TempSensor struct {
@@ -19,7 +21,8 @@ type TempSensor struct {
 	Label       string
 	ShowAbove   int
 	UrgentAbove int
-	Value       int // current temperature in C
+	Value       int // smoothed temperature in C
+	ema         *util.EMA
 }
 
 type Temperature struct {
@@ -33,11 +36,16 @@ func NewTemperature(cfgs []config.TemperatureConfig, fs afero.Fs) *Temperature {
 	if len(cfgs) > 0 {
 		// Use configured sensors
 		for _, tc := range cfgs {
+			interval := tc.SmoothingIntervalSeconds
+			if interval == 0 {
+				interval = DefaultSmoothingInterval
+			}
 			t.sensors = append(t.sensors, TempSensor{
 				Path:        tc.Path,
 				Label:       tc.Label,
 				ShowAbove:   tc.ShowAbove,
 				UrgentAbove: tc.UrgentAbove,
+				ema:         util.NewEMA(interval),
 			})
 		}
 	} else {
@@ -147,6 +155,7 @@ func (t *Temperature) autoDetectSensors() []TempSensor {
 					Label:       label,
 					ShowAbove:   75,
 					UrgentAbove: 90,
+					ema:         util.NewEMA(DefaultSmoothingInterval),
 				})
 				return sensors
 			}
@@ -169,6 +178,7 @@ func (t *Temperature) autoDetectSensors() []TempSensor {
 					Label:       zoneType,
 					ShowAbove:   75,
 					UrgentAbove: 90,
+					ema:         util.NewEMA(DefaultSmoothingInterval),
 				})
 				return sensors
 			}
@@ -191,8 +201,9 @@ func (t *Temperature) Update() {
 			continue
 		}
 
-		// Convert from millidegrees to degrees
-		t.sensors[i].Value = val / 1000
+		// Convert from millidegrees to degrees and apply EMA smoothing
+		rawTemp := float64(val) / 1000
+		t.sensors[i].Value = int(math.Round(t.sensors[i].ema.Update(rawTemp)))
 	}
 }
 

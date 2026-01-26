@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -46,8 +47,8 @@ func TestDefault(t *testing.T) {
 	if cfg.CPU.ShowCoreAbove != 95 {
 		t.Errorf("CPU.ShowCoreAbove = %d, want 95", cfg.CPU.ShowCoreAbove)
 	}
-	if cfg.CPU.AverageSeconds != 5 {
-		t.Errorf("CPU.AverageSeconds = %d, want 5", cfg.CPU.AverageSeconds)
+	if cfg.CPU.SmoothingIntervalSeconds != 3 {
+		t.Errorf("CPU.SmoothingIntervalSeconds = %d, want 3", cfg.CPU.SmoothingIntervalSeconds)
 	}
 	if cfg.CPU.UrgentAbove != 95 {
 		t.Errorf("CPU.UrgentAbove = %d, want 95", cfg.CPU.UrgentAbove)
@@ -152,7 +153,7 @@ func TestLoad_WithConfigFile(t *testing.T) {
 [cpu]
 enabled = false
 show_above = 75
-average_seconds = 10
+smoothing_interval_seconds = 10
 
 [battery]
 urgent_below = 15
@@ -178,8 +179,8 @@ show_below = 10
 	if cfg.CPU.ShowAbove != 75 {
 		t.Errorf("CPU.ShowAbove = %d, want 75", cfg.CPU.ShowAbove)
 	}
-	if cfg.CPU.AverageSeconds != 10 {
-		t.Errorf("CPU.AverageSeconds = %d, want 10", cfg.CPU.AverageSeconds)
+	if cfg.CPU.SmoothingIntervalSeconds != 10 {
+		t.Errorf("CPU.SmoothingIntervalSeconds = %d, want 10", cfg.CPU.SmoothingIntervalSeconds)
 	}
 	if cfg.Battery.UrgentBelow != 15 {
 		t.Errorf("Battery.UrgentBelow = %d, want 15", cfg.Battery.UrgentBelow)
@@ -212,5 +213,55 @@ func TestLoad_InvalidToml(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Error("Load() expected error for invalid TOML, got nil")
+	}
+}
+
+func TestLoad_UnknownKeys(t *testing.T) {
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
+	defer os.Setenv("XDG_CONFIG_HOME", origXDG)
+
+	tmpDir := t.TempDir()
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	configDir := filepath.Join(tmpDir, "h2status")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	// Config with unknown keys
+	configContent := `
+[cpu]
+enabled = true
+unknown_key = "value"
+average_seconds = 5
+`
+	configPath := filepath.Join(configDir, "config.toml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	// Capture stderr
+	origStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	_, err := Load()
+
+	w.Close()
+	os.Stderr = origStderr
+
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	var buf [1024]byte
+	n, _ := r.Read(buf[:])
+	output := string(buf[:n])
+
+	if !strings.Contains(output, "cpu.unknown_key") {
+		t.Errorf("expected warning about cpu.unknown_key, got: %s", output)
+	}
+	if !strings.Contains(output, "cpu.average_seconds") {
+		t.Errorf("expected warning about cpu.average_seconds (renamed), got: %s", output)
 	}
 }
