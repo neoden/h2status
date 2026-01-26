@@ -11,7 +11,7 @@ type EMA struct {
 }
 
 // NewEMA creates a new EMA smoother with the given period.
-// Period corresponds to the "average_seconds" config parameter.
+// Period corresponds to the "smoothing_interval_seconds" config parameter.
 func NewEMA(period int) *EMA {
 	if period < 1 {
 		period = 1

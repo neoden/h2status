@@ -33,18 +33,24 @@ type CPUUsage struct {
 }
 
 type CPU struct {
-	fs           afero.Fs
-	cfg          config.CPUConfig
-	prevSnapshot *CPUSnapshot
-	totalEMA     *util.EMA
-	coreEMAs     []*util.EMA
+	fs                afero.Fs
+	cfg               config.CPUConfig
+	prevSnapshot      *CPUSnapshot
+	smoothingInterval int
+	totalEMA          *util.EMA
+	coreEMAs          []*util.EMA
 }
 
 func NewCPU(cfg config.CPUConfig, fs afero.Fs) *CPU {
+	interval := cfg.SmoothingIntervalSeconds
+	if interval == 0 {
+		interval = DefaultSmoothingInterval
+	}
 	return &CPU{
-		fs:       fs,
-		cfg:      cfg,
-		totalEMA: util.NewEMA(cfg.SmoothingIntervalSeconds),
+		fs:                fs,
+		cfg:               cfg,
+		smoothingInterval: interval,
+		totalEMA:          util.NewEMA(interval),
 	}
 }
 
@@ -62,7 +68,7 @@ func (c *CPU) Update() {
 		if c.coreEMAs == nil {
 			c.coreEMAs = make([]*util.EMA, len(usage.PerCore))
 			for i := range c.coreEMAs {
-				c.coreEMAs[i] = util.NewEMA(c.cfg.SmoothingIntervalSeconds)
+				c.coreEMAs[i] = util.NewEMA(c.smoothingInterval)
 			}
 		}
 

@@ -439,3 +439,82 @@ func TestPrintDetectedSensorsTo_ThermalZoneNoType(t *testing.T) {
 		t.Errorf("output should not contain zone without type: %s", output)
 	}
 }
+
+func TestTemperature_EMASmoothing(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "/sys/hwmon/temp1", []byte("50000\n"), 0644) // 50°C
+
+	cfgs := []config.TemperatureConfig{
+		{Path: "/sys/hwmon/temp1", Label: "CPU", ShowAbove: 40, UrgentAbove: 90, SmoothingIntervalSeconds: 3},
+	}
+
+	temp := NewTemperature(cfgs, fs)
+	temp.Update()
+
+	// First update should set value directly
+	if temp.sensors[0].Value != 50 {
+		t.Errorf("First update: Value = %d, want 50", temp.sensors[0].Value)
+	}
+
+	// Spike to 80°C - should be smoothed
+	afero.WriteFile(fs, "/sys/hwmon/temp1", []byte("80000\n"), 0644)
+	temp.Update()
+
+	// Value should be between 50 and 80 due to smoothing
+	if temp.sensors[0].Value <= 50 || temp.sensors[0].Value >= 80 {
+		t.Errorf("After spike: Value = %d, want between 50 and 80", temp.sensors[0].Value)
+	}
+
+	// Continue updating with 80°C - should converge
+	for i := 0; i < 20; i++ {
+		temp.Update()
+	}
+
+	// Should be close to 80 now
+	if temp.sensors[0].Value < 78 {
+		t.Errorf("After convergence: Value = %d, want >= 78", temp.sensors[0].Value)
+	}
+}
+
+func TestTemperature_EMARounding(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "/sys/hwmon/temp1", []byte("50000\n"), 0644)
+
+	cfgs := []config.TemperatureConfig{
+		{Path: "/sys/hwmon/temp1", Label: "CPU", ShowAbove: 40, UrgentAbove: 90, SmoothingIntervalSeconds: 1},
+	}
+
+	temp := NewTemperature(cfgs, fs)
+	temp.Update()
+
+	// With period=1, alpha=1, so value should equal input
+	// 49.5°C should round to 50
+	afero.WriteFile(fs, "/sys/hwmon/temp1", []byte("49500\n"), 0644)
+	temp.Update()
+
+	if temp.sensors[0].Value != 50 {
+		t.Errorf("Value = %d, want 50 (rounded from 49.5)", temp.sensors[0].Value)
+	}
+}
+
+func TestTemperature_DefaultSmoothingInterval(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "/sys/hwmon/temp1", []byte("50000\n"), 0644)
+
+	// Config without SmoothingIntervalSeconds - should use default
+	cfgs := []config.TemperatureConfig{
+		{Path: "/sys/hwmon/temp1", Label: "CPU", ShowAbove: 40, UrgentAbove: 90},
+	}
+
+	temp := NewTemperature(cfgs, fs)
+
+	// Verify EMA was created (sensor has ema field)
+	if temp.sensors[0].ema == nil {
+		t.Error("EMA should be initialized with default interval")
+	}
+
+	temp.Update()
+	if temp.sensors[0].Value != 50 {
+		t.Errorf("Value = %d, want 50", temp.sensors[0].Value)
+	}
+}

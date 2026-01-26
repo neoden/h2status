@@ -3,6 +3,7 @@ package widgets
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,8 +30,6 @@ type Temperature struct {
 	sensors []TempSensor
 }
 
-const defaultSmoothingInterval = 3
-
 func NewTemperature(cfgs []config.TemperatureConfig, fs afero.Fs) *Temperature {
 	t := &Temperature{fs: fs}
 
@@ -39,7 +38,7 @@ func NewTemperature(cfgs []config.TemperatureConfig, fs afero.Fs) *Temperature {
 		for _, tc := range cfgs {
 			interval := tc.SmoothingIntervalSeconds
 			if interval == 0 {
-				interval = defaultSmoothingInterval
+				interval = DefaultSmoothingInterval
 			}
 			t.sensors = append(t.sensors, TempSensor{
 				Path:        tc.Path,
@@ -156,7 +155,7 @@ func (t *Temperature) autoDetectSensors() []TempSensor {
 					Label:       label,
 					ShowAbove:   75,
 					UrgentAbove: 90,
-					ema:         util.NewEMA(defaultSmoothingInterval),
+					ema:         util.NewEMA(DefaultSmoothingInterval),
 				})
 				return sensors
 			}
@@ -179,7 +178,7 @@ func (t *Temperature) autoDetectSensors() []TempSensor {
 					Label:       zoneType,
 					ShowAbove:   75,
 					UrgentAbove: 90,
-					ema:         util.NewEMA(defaultSmoothingInterval),
+					ema:         util.NewEMA(DefaultSmoothingInterval),
 				})
 				return sensors
 			}
@@ -204,7 +203,7 @@ func (t *Temperature) Update() {
 
 		// Convert from millidegrees to degrees and apply EMA smoothing
 		rawTemp := float64(val) / 1000
-		t.sensors[i].Value = int(t.sensors[i].ema.Update(rawTemp))
+		t.sensors[i].Value = int(math.Round(t.sensors[i].ema.Update(rawTemp)))
 	}
 }
 

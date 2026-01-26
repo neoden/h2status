@@ -213,14 +213,12 @@ cpu1 500 0 0 500 0 0 0 0 0 0
 	// Simulate updates with 50% usage
 	for i := 0; i < 3; i++ {
 		// Update stat file - double all values each time
-		prev := 1000 * (i + 1)
 		curr := 1000 * (i + 2)
 		content := []byte(fmt.Sprintf(`cpu  %d 0 0 %d 0 0 0 0 0 0
 cpu0 %d 0 0 %d 0 0 0 0 0 0
 cpu1 %d 0 0 %d 0 0 0 0 0 0
 `, curr, curr, curr/2, curr/2, curr/2, curr/2))
 		afero.WriteFile(fs, "/proc/stat", content, 0644)
-		_ = prev
 		cpu.Update()
 	}
 

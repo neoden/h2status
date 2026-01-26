@@ -26,6 +26,9 @@ var Log = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 	Level: slog.LevelInfo,
 }))
 
+// Default smoothing interval for EMA in seconds
+const DefaultSmoothingInterval = 3
+
 // Helper functions
 
 func FormatBytes(b uint64) string {
