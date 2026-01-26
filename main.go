@@ -15,56 +15,65 @@ import (
 )
 
 type App struct {
-	cfg       *config.Config
-	widgets   []widgets.Widget
-	bluetooth *widgets.Bluetooth
-	battery   *widgets.Battery
-	clock     *widgets.Clock
+	cfg           *config.Config
+	widgets       []widgets.Widget
+	clickHandlers map[string]widgets.ClickHandler
+	updates       chan struct{}
 }
 
 func NewApp(cfg *config.Config) *App {
 	app := &App{
-		cfg:   cfg,
-		clock: widgets.NewClock(cfg.Clock.Formats),
+		cfg:           cfg,
+		clickHandlers: make(map[string]widgets.ClickHandler),
+		updates:       make(chan struct{}, 1),
 	}
 
 	fs := afero.NewOsFs()
 
 	// Initialize widgets based on config
 	if cfg.CPU.Enabled {
-		app.widgets = append(app.widgets, widgets.NewCPU(cfg.CPU, fs))
+		app.addWidget(widgets.NewCPU(cfg.CPU, fs))
 	}
 	if cfg.RAM.Enabled {
-		app.widgets = append(app.widgets, widgets.NewRAM(cfg.RAM, fs))
+		app.addWidget(widgets.NewRAM(cfg.RAM, fs))
 	}
 	if len(cfg.Temperature) > 0 || true { // always try to auto-detect
-		app.widgets = append(app.widgets, widgets.NewTemperature(cfg.Temperature, fs))
+		app.addWidget(widgets.NewTemperature(cfg.Temperature, fs))
 	}
 	if len(cfg.Disk) > 0 {
-		app.widgets = append(app.widgets, widgets.NewDisk(cfg.Disk))
+		app.addWidget(widgets.NewDisk(cfg.Disk))
 	}
 	if cfg.WiFi.Enabled {
-		app.widgets = append(app.widgets, widgets.NewWiFi(cfg.WiFi))
+		app.addWidget(widgets.NewWiFi(cfg.WiFi))
 	}
 	if cfg.Network.Enabled {
-		app.widgets = append(app.widgets, widgets.NewNetwork(fs))
+		app.addWidget(widgets.NewNetwork(fs))
 	}
 	if cfg.VPN.Enabled {
-		app.widgets = append(app.widgets, widgets.NewVPN(cfg.VPN, fs))
+		app.addWidget(widgets.NewVPN(cfg.VPN, fs))
 	}
 	if cfg.Bluetooth.Enabled {
-		app.bluetooth = widgets.NewBluetooth()
-		if err := app.bluetooth.Init(); err != nil {
+		bt := widgets.NewBluetooth(app.updates)
+		if err := bt.Init(); err != nil {
 			fmt.Fprintln(os.Stderr, "bluetooth init:", err)
 		}
-		app.widgets = append(app.widgets, app.bluetooth)
+		app.addWidget(bt)
 	}
 	if cfg.Battery.Enabled {
-		app.battery = widgets.NewBattery(cfg.Battery, fs)
-		app.widgets = append(app.widgets, app.battery)
+		app.addWidget(widgets.NewBattery(cfg.Battery, fs))
+	}
+	if cfg.Clock.Enabled {
+		app.addWidget(widgets.NewClock(cfg.Clock))
 	}
 
 	return app
+}
+
+func (app *App) addWidget(w widgets.Widget) {
+	app.widgets = append(app.widgets, w)
+	if ch, ok := w.(widgets.ClickHandler); ok {
+		app.clickHandlers[ch.ClickName()] = ch
+	}
 }
 
 func (app *App) Update() {
@@ -82,20 +91,12 @@ func (app *App) Render() string {
 		}
 	}
 
-	// Clock is always last
-	blocks = append(blocks, app.clock.GetBlock())
-
 	return "[" + strings.Join(blocks, ",") + "],"
 }
 
 func (app *App) HandleClick(event swaybar.ClickEvent) {
-	switch event.Name {
-	case "power_supply":
-		if app.battery != nil {
-			app.battery.HandleClick(event.Button)
-		}
-	case "clock":
-		app.clock.HandleClick(event.Button)
+	if ch, ok := app.clickHandlers[event.Name]; ok {
+		ch.HandleClick(event.Button)
 	}
 }
 
@@ -159,18 +160,12 @@ func main() {
 	eventsCh := make(chan swaybar.ClickEvent)
 	go HandleClickEvents(eventsCh)
 
-	// Get bluetooth updates channel if available
-	var bluetoothCh <-chan struct{}
-	if app.bluetooth != nil {
-		bluetoothCh = app.bluetooth.Updates()
-	}
-
 	for {
 		select {
 		case <-tickCh:
 			app.Update()
-		case <-bluetoothCh:
-			// bluetooth state updated, just re-render
+		case <-app.updates:
+			// async widget updated, just re-render
 		case event := <-eventsCh:
 			app.HandleClick(event)
 		}

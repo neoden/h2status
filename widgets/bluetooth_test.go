@@ -7,37 +7,36 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
+func newTestBluetooth() (*Bluetooth, chan struct{}) {
+	ch := make(chan struct{}, 1)
+	return NewBluetooth(ch), ch
+}
+
 func TestNewBluetooth(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	if b.devices == nil {
 		t.Error("devices map should be initialized")
-	}
-	if b.updates == nil {
-		t.Error("updates channel should be initialized")
 	}
 	if b.conn != nil {
 		t.Error("conn should be nil before Init()")
 	}
 }
 
+func TestNewBluetooth_NilChannel(t *testing.T) {
+	b := NewBluetooth(nil)
+	// notifyUpdate should not panic with nil channel
+	b.notifyUpdate()
+}
+
 func TestBluetooth_Update(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	// Update is a no-op (bluetooth updates via dbus signals)
 	b.Update() // should not panic
 }
 
-func TestBluetooth_Updates(t *testing.T) {
-	b := NewBluetooth()
-	ch := b.Updates()
-
-	if ch == nil {
-		t.Error("Updates() should return non-nil channel")
-	}
-}
-
 func TestBluetooth_GetBlock_NoDevices(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	block := b.GetBlock()
 	if block != "" {
@@ -46,7 +45,7 @@ func TestBluetooth_GetBlock_NoDevices(t *testing.T) {
 }
 
 func TestBluetooth_GetBlock_OneDevice(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	b.devices["/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"] = &BluetoothDevice{
 		Path:      "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF",
 		Name:      "Sony WH-1000XM4",
@@ -67,7 +66,7 @@ func TestBluetooth_GetBlock_OneDevice(t *testing.T) {
 }
 
 func TestBluetooth_GetBlock_MultipleDevices(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	now := time.Now()
 
 	b.devices["/dev1"] = &BluetoothDevice{
@@ -96,7 +95,7 @@ func TestBluetooth_GetBlock_MultipleDevices(t *testing.T) {
 }
 
 func TestBluetooth_GetBlock_DisconnectedDevice(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	b.devices["/dev1"] = &BluetoothDevice{
 		Path:      "/dev1",
 		Name:      "Headphones",
@@ -111,7 +110,7 @@ func TestBluetooth_GetBlock_DisconnectedDevice(t *testing.T) {
 }
 
 func TestBluetooth_GetBlock_NonAudioDevice(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	b.devices["/dev1"] = &BluetoothDevice{
 		Path:      "/dev1",
 		Name:      "Keyboard",
@@ -126,7 +125,7 @@ func TestBluetooth_GetBlock_NonAudioDevice(t *testing.T) {
 }
 
 func TestBluetooth_GetConnectedAudioDevices_Empty(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	devices := b.GetConnectedAudioDevices()
 	if len(devices) != 0 {
@@ -135,7 +134,7 @@ func TestBluetooth_GetConnectedAudioDevices_Empty(t *testing.T) {
 }
 
 func TestBluetooth_GetConnectedAudioDevices_Filters(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	b.devices["/dev1"] = &BluetoothDevice{Name: "Audio1", Connected: true, IsAudio: true}
 	b.devices["/dev2"] = &BluetoothDevice{Name: "Audio2", Connected: false, IsAudio: true}   // disconnected
@@ -149,7 +148,7 @@ func TestBluetooth_GetConnectedAudioDevices_Filters(t *testing.T) {
 }
 
 func TestBluetooth_GetConnectedAudioDevices_SortByConnectionTime(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	now := time.Now()
 
 	b.devices["/dev1"] = &BluetoothDevice{
@@ -178,7 +177,7 @@ func TestBluetooth_GetConnectedAudioDevices_SortByConnectionTime(t *testing.T) {
 }
 
 func TestBluetooth_GetConnectedAudioDevices_SortAlphabeticalFallback(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	sameTime := time.Now()
 
 	b.devices["/dev1"] = &BluetoothDevice{
@@ -201,13 +200,13 @@ func TestBluetooth_GetConnectedAudioDevices_SortAlphabeticalFallback(t *testing.
 }
 
 func TestBluetooth_notifyUpdate(t *testing.T) {
-	b := NewBluetooth()
+	b, updates := newTestBluetooth()
 
 	// First notify should succeed
 	b.notifyUpdate()
 
 	select {
-	case <-b.updates:
+	case <-updates:
 		// good
 	default:
 		t.Error("expected update notification")
@@ -215,7 +214,7 @@ func TestBluetooth_notifyUpdate(t *testing.T) {
 }
 
 func TestBluetooth_notifyUpdate_NonBlocking(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	// Fill the channel (buffer size is 1)
 	b.notifyUpdate()
@@ -236,7 +235,7 @@ func TestBluetooth_notifyUpdate_NonBlocking(t *testing.T) {
 }
 
 func TestBluetooth_updateDevice_NewDevice(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF")
 
 	props := map[string]dbus.Variant{
@@ -263,7 +262,7 @@ func TestBluetooth_updateDevice_NewDevice(t *testing.T) {
 }
 
 func TestBluetooth_updateDevice_ExistingDevice(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/dev1")
 
 	// Create initial device
@@ -291,7 +290,7 @@ func TestBluetooth_updateDevice_ExistingDevice(t *testing.T) {
 }
 
 func TestBluetooth_updateDevice_ConnectionTime(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/dev1")
 
 	// Create disconnected device
@@ -317,7 +316,7 @@ func TestBluetooth_updateDevice_ConnectionTime(t *testing.T) {
 }
 
 func TestBluetooth_updateDevice_PartialProps(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/dev1")
 
 	// Only update Alias
@@ -337,7 +336,7 @@ func TestBluetooth_updateDevice_PartialProps(t *testing.T) {
 }
 
 func TestBluetooth_processManagedObjects(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	managed := map[dbus.ObjectPath]map[string]map[string]dbus.Variant{
 		"/org/bluez/hci0/dev_AA": {
@@ -380,7 +379,7 @@ func TestBluetooth_processManagedObjects(t *testing.T) {
 }
 
 func TestBluetooth_processManagedObjects_Empty(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	b.processManagedObjects(nil)
 
@@ -390,7 +389,7 @@ func TestBluetooth_processManagedObjects_Empty(t *testing.T) {
 }
 
 func TestBluetooth_handleSignal_PropertiesChanged(t *testing.T) {
-	b := NewBluetooth()
+	b, updates := newTestBluetooth()
 	path := dbus.ObjectPath("/org/bluez/hci0/dev_AA")
 
 	// Create existing device
@@ -425,7 +424,7 @@ func TestBluetooth_handleSignal_PropertiesChanged(t *testing.T) {
 
 	// Should have sent update notification
 	select {
-	case <-b.updates:
+	case <-updates:
 		// good
 	default:
 		t.Error("expected update notification")
@@ -433,7 +432,7 @@ func TestBluetooth_handleSignal_PropertiesChanged(t *testing.T) {
 }
 
 func TestBluetooth_handleSignal_PropertiesChanged_WrongInterface(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	signal := &dbus.Signal{
 		Path: "/org/bluez/hci0",
@@ -453,7 +452,7 @@ func TestBluetooth_handleSignal_PropertiesChanged_WrongInterface(t *testing.T) {
 }
 
 func TestBluetooth_handleSignal_InterfacesAdded(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/org/bluez/hci0/dev_NEW")
 
 	signal := &dbus.Signal{
@@ -482,7 +481,7 @@ func TestBluetooth_handleSignal_InterfacesAdded(t *testing.T) {
 }
 
 func TestBluetooth_handleSignal_InterfacesRemoved(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/org/bluez/hci0/dev_AA")
 
 	// Create existing device
@@ -507,7 +506,7 @@ func TestBluetooth_handleSignal_InterfacesRemoved(t *testing.T) {
 }
 
 func TestBluetooth_handleSignal_InterfacesRemoved_WrongInterface(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 	path := dbus.ObjectPath("/org/bluez/hci0/dev_AA")
 
 	b.devices[path] = &BluetoothDevice{Path: path}
@@ -528,7 +527,7 @@ func TestBluetooth_handleSignal_InterfacesRemoved_WrongInterface(t *testing.T) {
 }
 
 func TestBluetooth_handleSignal_InvalidBody(t *testing.T) {
-	b := NewBluetooth()
+	b, _ := newTestBluetooth()
 
 	// Should not panic on invalid signal bodies
 	signals := []*dbus.Signal{
