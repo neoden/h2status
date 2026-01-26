@@ -15,15 +15,9 @@ type Widget interface {
 	GetBlock() string
 }
 
-// AsyncWidget is for widgets that have async updates (like bluetooth via dbus)
-type AsyncWidget interface {
-	Widget
-	Init() error
-	Updates() <-chan struct{}
-}
-
 // ClickHandler is for widgets that handle click events
 type ClickHandler interface {
+	ClickName() string
 	HandleClick(button int)
 }
 

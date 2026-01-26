@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
 
 	"github.com/klauspost/lctime"
@@ -27,7 +28,8 @@ type Clock struct {
 	index   int
 }
 
-func NewClock(formats []string) *Clock {
+func NewClock(cfg config.ClockConfig) *Clock {
+	formats := cfg.Formats
 	if len(formats) == 0 {
 		formats = []string{"%H:%M"}
 	}
@@ -41,6 +43,10 @@ func (c *Clock) Update() {
 func (c *Clock) GetBlock() string {
 	text := lctime.Strftime(c.formats[c.index], time.Now())
 	return swaybar.MakeBlock("clock", text, false)
+}
+
+func (c *Clock) ClickName() string {
+	return "clock"
 }
 
 func (c *Clock) HandleClick(button int) {

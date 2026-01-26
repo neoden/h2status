@@ -10,6 +10,7 @@
 #   %F=%Y-%m-%d %T=%H:%M:%S %R=%H:%M
 # Click on clock to cycle through formats
 [clock]
+enabled = true
 formats = ["%H:%M", "%a %d %b"]
 
 # Battery widget

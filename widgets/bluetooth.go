@@ -26,13 +26,13 @@ type Bluetooth struct {
 	conn    *dbus.Conn
 	devices map[dbus.ObjectPath]*BluetoothDevice
 	mu      sync.RWMutex
-	updates chan struct{}
+	updates chan<- struct{}
 }
 
-func NewBluetooth() *Bluetooth {
+func NewBluetooth(updates chan<- struct{}) *Bluetooth {
 	return &Bluetooth{
 		devices: make(map[dbus.ObjectPath]*BluetoothDevice),
-		updates: make(chan struct{}, 1),
+		updates: updates,
 	}
 }
 
@@ -74,9 +74,6 @@ func (b *Bluetooth) processManagedObjects(managed map[dbus.ObjectPath]map[string
 	}
 }
 
-func (b *Bluetooth) Updates() <-chan struct{} {
-	return b.updates
-}
 
 func (b *Bluetooth) updateDevice(path dbus.ObjectPath, props map[string]dbus.Variant) {
 	b.mu.Lock()
@@ -176,6 +173,9 @@ func (b *Bluetooth) handleSignal(signal *dbus.Signal) {
 }
 
 func (b *Bluetooth) notifyUpdate() {
+	if b.updates == nil {
+		return
+	}
 	select {
 	case b.updates <- struct{}{}:
 	default:

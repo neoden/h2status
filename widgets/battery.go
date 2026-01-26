@@ -162,6 +162,10 @@ func (b *Battery) GetBlock() string {
 	return swaybar.MakeBlock("power_supply", text, b.Percentage < b.cfg.UrgentBelow)
 }
 
+func (b *Battery) ClickName() string {
+	return "power_supply"
+}
+
 func (b *Battery) HandleClick(button int) {
 	b.Mode = (b.Mode + 1) % 2
 }

@@ -2,10 +2,12 @@ package widgets
 
 import (
 	"testing"
+
+	"neoden/h2status/config"
 )
 
 func TestNewClock_DefaultFormat(t *testing.T) {
-	c := NewClock(nil)
+	c := NewClock(config.ClockConfig{})
 
 	if len(c.formats) != 1 {
 		t.Fatalf("formats length = %d, want 1", len(c.formats))
@@ -16,7 +18,7 @@ func TestNewClock_DefaultFormat(t *testing.T) {
 }
 
 func TestNewClock_EmptyFormats(t *testing.T) {
-	c := NewClock([]string{})
+	c := NewClock(config.ClockConfig{Formats: []string{}})
 
 	if len(c.formats) != 1 {
 		t.Fatalf("formats length = %d, want 1", len(c.formats))
@@ -28,7 +30,7 @@ func TestNewClock_EmptyFormats(t *testing.T) {
 
 func TestNewClock_CustomFormats(t *testing.T) {
 	formats := []string{"%H:%M", "%Y-%m-%d", "%A"}
-	c := NewClock(formats)
+	c := NewClock(config.ClockConfig{Formats: formats})
 
 	if len(c.formats) != 3 {
 		t.Fatalf("formats length = %d, want 3", len(c.formats))
@@ -42,12 +44,12 @@ func TestNewClock_CustomFormats(t *testing.T) {
 }
 
 func TestClock_Update(t *testing.T) {
-	c := NewClock(nil)
+	c := NewClock(config.ClockConfig{})
 	c.Update()
 }
 
 func TestClock_GetBlock(t *testing.T) {
-	c := NewClock([]string{"%H:%M"})
+	c := NewClock(config.ClockConfig{Formats: []string{"%H:%M"}})
 	block := c.GetBlock()
 
 	if block == "" {
@@ -63,7 +65,7 @@ func TestClock_GetBlock(t *testing.T) {
 }
 
 func TestClock_HandleClick(t *testing.T) {
-	c := NewClock([]string{"%H:%M", "%Y-%m-%d", "%A"})
+	c := NewClock(config.ClockConfig{Formats: []string{"%H:%M", "%Y-%m-%d", "%A"}})
 
 	if c.index != 0 {
 		t.Errorf("initial index = %d, want 0", c.index)
@@ -86,7 +88,7 @@ func TestClock_HandleClick(t *testing.T) {
 }
 
 func TestClock_HandleClick_SingleFormat(t *testing.T) {
-	c := NewClock([]string{"%H:%M"})
+	c := NewClock(config.ClockConfig{Formats: []string{"%H:%M"}})
 
 	c.HandleClick(1)
 	if c.index != 0 {
@@ -95,7 +97,7 @@ func TestClock_HandleClick_SingleFormat(t *testing.T) {
 }
 
 func TestClock_GetBlock_DifferentFormats(t *testing.T) {
-	c := NewClock([]string{"%H:%M", "%Y"})
+	c := NewClock(config.ClockConfig{Formats: []string{"%H:%M", "%Y"}})
 
 	block1 := c.GetBlock()
 	c.HandleClick(1)
