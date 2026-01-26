@@ -3,6 +3,7 @@ package widgets
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 
 	"neoden/h2status/config"
 	"neoden/h2status/swaybar"
+	"neoden/h2status/util"
 )
 
 type CPUSnapshot struct {
@@ -34,14 +36,15 @@ type CPU struct {
 	fs           afero.Fs
 	cfg          config.CPUConfig
 	prevSnapshot *CPUSnapshot
-	history      []CPUUsage
+	totalEMA     *util.EMA
+	coreEMAs     []*util.EMA
 }
 
 func NewCPU(cfg config.CPUConfig, fs afero.Fs) *CPU {
 	return &CPU{
-		fs:      fs,
-		cfg:     cfg,
-		history: make([]CPUUsage, 0, cfg.AverageSeconds),
+		fs:       fs,
+		cfg:      cfg,
+		totalEMA: util.NewEMA(cfg.SmoothingIntervalSeconds),
 	}
 }
 
@@ -54,41 +57,39 @@ func (c *CPU) Update() {
 
 	if c.prevSnapshot != nil {
 		usage := calcUsage(c.prevSnapshot, snapshot)
-		c.addToHistory(usage)
+
+		// Initialize core EMAs if needed
+		if c.coreEMAs == nil {
+			c.coreEMAs = make([]*util.EMA, len(usage.PerCore))
+			for i := range c.coreEMAs {
+				c.coreEMAs[i] = util.NewEMA(c.cfg.SmoothingIntervalSeconds)
+			}
+		}
+
+		// Update EMAs
+		c.totalEMA.Update(usage.Total)
+		for i, core := range usage.PerCore {
+			if i < len(c.coreEMAs) {
+				c.coreEMAs[i].Update(core)
+			}
+		}
 	}
 
 	c.prevSnapshot = snapshot
 }
 
-func (c *CPU) addToHistory(usage CPUUsage) {
-	if len(c.history) >= c.cfg.AverageSeconds {
-		copy(c.history, c.history[1:])
-		c.history = c.history[:c.cfg.AverageSeconds-1]
-	}
-	c.history = append(c.history, usage)
-}
-
 func (c *CPU) GetAverageUsage() *CPUUsage {
-	if len(c.history) < c.cfg.AverageSeconds {
+	if !c.totalEMA.Ready() {
 		return nil
 	}
 
-	numCores := len(c.history[0].PerCore)
 	avg := CPUUsage{
-		PerCore: make([]float64, numCores),
+		Total:   c.totalEMA.Value(),
+		PerCore: make([]float64, len(c.coreEMAs)),
 	}
 
-	for _, u := range c.history {
-		avg.Total += u.Total
-		for i, core := range u.PerCore {
-			avg.PerCore[i] += core
-		}
-	}
-
-	n := float64(len(c.history))
-	avg.Total /= n
-	for i := range avg.PerCore {
-		avg.PerCore[i] /= n
+	for i, ema := range c.coreEMAs {
+		avg.PerCore[i] = ema.Value()
 	}
 
 	return &avg
@@ -121,9 +122,9 @@ func (c *CPU) GetBlock() string {
 
 	var text string
 	if showCores {
-		text = fmt.Sprintf("\uf2db %d%% (%d@%d%%)", int(avg.Total), hotCores, int(maxCore))
+		text = fmt.Sprintf("\uf2db %d%% (%d@%d%%)", int(math.Round(avg.Total)), hotCores, int(math.Round(maxCore)))
 	} else {
-		text = fmt.Sprintf("\uf2db %d%%", int(avg.Total))
+		text = fmt.Sprintf("\uf2db %d%%", int(math.Round(avg.Total)))
 	}
 
 	urgent := avg.Total > float64(c.cfg.UrgentAbove)

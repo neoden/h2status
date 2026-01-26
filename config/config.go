@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -24,11 +25,11 @@ type ClockConfig struct {
 }
 
 type CPUConfig struct {
-	Enabled        bool `toml:"enabled"`
-	ShowAbove      int  `toml:"show_above"`
-	ShowCoreAbove  int  `toml:"show_core_above"`
-	AverageSeconds int  `toml:"average_seconds"`
-	UrgentAbove    int  `toml:"urgent_above"`
+	Enabled                  bool `toml:"enabled"`
+	ShowAbove                int  `toml:"show_above"`
+	ShowCoreAbove            int  `toml:"show_core_above"`
+	SmoothingIntervalSeconds int  `toml:"smoothing_interval_seconds"`
+	UrgentAbove              int  `toml:"urgent_above"`
 }
 
 type RAMConfig struct {
@@ -62,10 +63,11 @@ type VPNConfig struct {
 }
 
 type TemperatureConfig struct {
-	Path        string `toml:"path"`
-	Label       string `toml:"label"`
-	ShowAbove   int    `toml:"show_above"`
-	UrgentAbove int    `toml:"urgent_above"`
+	Path                     string `toml:"path"`
+	Label                    string `toml:"label"`
+	ShowAbove                int    `toml:"show_above"`
+	UrgentAbove              int    `toml:"urgent_above"`
+	SmoothingIntervalSeconds int    `toml:"smoothing_interval_seconds"`
 }
 
 type Config struct {
@@ -97,11 +99,11 @@ func Default() *Config {
 			Enabled: true,
 		},
 		CPU: CPUConfig{
-			Enabled:        true,
-			ShowAbove:      50,
-			ShowCoreAbove:  95,
-			AverageSeconds: 5,
-			UrgentAbove:    95,
+			Enabled:                  true,
+			ShowAbove:                50,
+			ShowCoreAbove:            95,
+			SmoothingIntervalSeconds: 3,
+			UrgentAbove:              95,
 		},
 		RAM: RAMConfig{
 			Enabled:     true,
@@ -147,9 +149,13 @@ func Load() (*Config, error) {
 		return cfg, nil
 	}
 
-	_, err = toml.DecodeFile(configPath, cfg)
+	meta, err := toml.DecodeFile(configPath, cfg)
 	if err != nil {
 		return cfg, err
+	}
+
+	for _, key := range meta.Undecoded() {
+		fmt.Fprintf(os.Stderr, "config: unknown key %q\n", key.String())
 	}
 
 	return cfg, nil

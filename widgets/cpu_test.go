@@ -1,12 +1,14 @@
 package widgets
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
 	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
+	"neoden/h2status/util"
 )
 
 func TestParseCPUTime(t *testing.T) {
@@ -188,76 +190,48 @@ func TestCalcUsage(t *testing.T) {
 	}
 }
 
-func TestCPU_AddToHistory(t *testing.T) {
-	cfg := config.CPUConfig{AverageSeconds: 3}
-	cpu := NewCPU(cfg, afero.NewMemMapFs())
-
-	// Add first usage
-	cpu.addToHistory(CPUUsage{Total: 10, PerCore: []float64{10}})
-	if len(cpu.history) != 1 {
-		t.Errorf("history length = %d, want 1", len(cpu.history))
-	}
-
-	// Add second usage
-	cpu.addToHistory(CPUUsage{Total: 20, PerCore: []float64{20}})
-	if len(cpu.history) != 2 {
-		t.Errorf("history length = %d, want 2", len(cpu.history))
-	}
-
-	// Add third usage (at capacity)
-	cpu.addToHistory(CPUUsage{Total: 30, PerCore: []float64{30}})
-	if len(cpu.history) != 3 {
-		t.Errorf("history length = %d, want 3", len(cpu.history))
-	}
-
-	// Add fourth usage (should evict first)
-	cpu.addToHistory(CPUUsage{Total: 40, PerCore: []float64{40}})
-	if len(cpu.history) != 3 {
-		t.Errorf("history length = %d, want 3", len(cpu.history))
-	}
-
-	// Check oldest was evicted
-	if cpu.history[0].Total != 20 {
-		t.Errorf("history[0].Total = %f, want 20", cpu.history[0].Total)
-	}
-	if cpu.history[2].Total != 40 {
-		t.Errorf("history[2].Total = %f, want 40", cpu.history[2].Total)
-	}
-}
 
 func TestCPU_GetAverageUsage(t *testing.T) {
-	cfg := config.CPUConfig{AverageSeconds: 3}
-	cpu := NewCPU(cfg, afero.NewMemMapFs())
+	fs := afero.NewMemMapFs()
 
-	// Not enough history
+	// Create proc/stat with 2 cores
+	afero.WriteFile(fs, "/proc/stat", []byte(`cpu  1000 0 0 1000 0 0 0 0 0 0
+cpu0 500 0 0 500 0 0 0 0 0 0
+cpu1 500 0 0 500 0 0 0 0 0 0
+`), 0644)
+
+	cfg := config.CPUConfig{SmoothingIntervalSeconds: 3}
+	cpu := NewCPU(cfg, fs)
+
+	// First update - just saves snapshot
+	cpu.Update()
 	avg := cpu.GetAverageUsage()
 	if avg != nil {
-		t.Error("GetAverageUsage() should return nil when history is not full")
+		t.Error("GetAverageUsage() should return nil before EMA is ready")
 	}
 
-	// Fill history
-	cpu.addToHistory(CPUUsage{Total: 10, PerCore: []float64{5, 15}})
-	cpu.addToHistory(CPUUsage{Total: 20, PerCore: []float64{10, 30}})
-	cpu.addToHistory(CPUUsage{Total: 30, PerCore: []float64{15, 45}})
+	// Simulate updates with 50% usage
+	for i := 0; i < 3; i++ {
+		// Update stat file - double all values each time
+		prev := 1000 * (i + 1)
+		curr := 1000 * (i + 2)
+		content := []byte(fmt.Sprintf(`cpu  %d 0 0 %d 0 0 0 0 0 0
+cpu0 %d 0 0 %d 0 0 0 0 0 0
+cpu1 %d 0 0 %d 0 0 0 0 0 0
+`, curr, curr, curr/2, curr/2, curr/2, curr/2))
+		afero.WriteFile(fs, "/proc/stat", content, 0644)
+		_ = prev
+		cpu.Update()
+	}
 
 	avg = cpu.GetAverageUsage()
 	if avg == nil {
-		t.Fatal("GetAverageUsage() returned nil")
+		t.Fatal("GetAverageUsage() returned nil after enough samples")
 	}
 
-	// Average of 10, 20, 30 = 20
-	if math.Abs(avg.Total-20.0) > 0.001 {
-		t.Errorf("GetAverageUsage().Total = %f, want 20.0", avg.Total)
-	}
-
-	// Average of core 0: (5 + 10 + 15) / 3 = 10
-	if math.Abs(avg.PerCore[0]-10.0) > 0.001 {
-		t.Errorf("GetAverageUsage().PerCore[0] = %f, want 10.0", avg.PerCore[0])
-	}
-
-	// Average of core 1: (15 + 30 + 45) / 3 = 30
-	if math.Abs(avg.PerCore[1]-30.0) > 0.001 {
-		t.Errorf("GetAverageUsage().PerCore[1] = %f, want 30.0", avg.PerCore[1])
+	// Should be around 50% (active == idle)
+	if avg.Total < 45 || avg.Total > 55 {
+		t.Errorf("GetAverageUsage().Total = %f, want ~50", avg.Total)
 	}
 }
 
@@ -270,16 +244,16 @@ cpu0 500 100 150 2000 0 0 0 0 0 0
 cpu1 500 100 150 2000 0 0 0 0 0 0
 `), 0644)
 
-	cfg := config.CPUConfig{AverageSeconds: 1}
+	cfg := config.CPUConfig{SmoothingIntervalSeconds: 1}
 	cpu := NewCPU(cfg, fs)
 	cpu.Update()
 
-	// First update just saves snapshot, no history yet
+	// First update just saves snapshot, no EMA values yet
 	if cpu.prevSnapshot == nil {
 		t.Fatal("prevSnapshot should not be nil after first Update")
 	}
-	if len(cpu.history) != 0 {
-		t.Errorf("history length = %d, want 0 after first update", len(cpu.history))
+	if cpu.coreEMAs != nil {
+		t.Error("coreEMAs should be nil after first update")
 	}
 
 	// Second snapshot - 50% usage (idle doubled, total doubled)
@@ -290,14 +264,17 @@ cpu1 1000 200 300 4000 0 0 0 0 0 0
 
 	cpu.Update()
 
-	if len(cpu.history) != 1 {
-		t.Fatalf("history length = %d, want 1 after second update", len(cpu.history))
+	if cpu.coreEMAs == nil {
+		t.Fatal("coreEMAs should not be nil after second update")
+	}
+	if len(cpu.coreEMAs) != 2 {
+		t.Errorf("coreEMAs length = %d, want 2", len(cpu.coreEMAs))
 	}
 
 	// Total: (2000-1000 + 400-200 + 600-300) / (11000-5500) = 1500/5500 ≈ 27.3%
 	expectedUsage := 100 * float64(1500) / float64(5500)
-	if math.Abs(cpu.history[0].Total-expectedUsage) > 0.1 {
-		t.Errorf("history[0].Total = %f, want ~%f", cpu.history[0].Total, expectedUsage)
+	if math.Abs(cpu.totalEMA.Value()-expectedUsage) > 0.1 {
+		t.Errorf("totalEMA.Value() = %f, want ~%f", cpu.totalEMA.Value(), expectedUsage)
 	}
 }
 
@@ -397,11 +374,23 @@ func TestCPU_GetBlock(t *testing.T) {
 				ShowAbove:      tt.showAbove,
 				ShowCoreAbove:  tt.showCoreAbove,
 				UrgentAbove:    tt.urgentAbove,
-				AverageSeconds: 1,
+				SmoothingIntervalSeconds: 1,
 			}
+
+			// Create CPU with primed EMAs
+			totalEMA := util.NewEMA(1)
+			totalEMA.Update(tt.total)
+
+			coreEMAs := make([]*util.EMA, len(tt.perCore))
+			for i, v := range tt.perCore {
+				coreEMAs[i] = util.NewEMA(1)
+				coreEMAs[i].Update(v)
+			}
+
 			cpu := &CPU{
-				cfg:     cfg,
-				history: []CPUUsage{{Total: tt.total, PerCore: tt.perCore}},
+				cfg:      cfg,
+				totalEMA: totalEMA,
+				coreEMAs: coreEMAs,
 			}
 
 			block := cpu.GetBlock()
@@ -422,14 +411,15 @@ func TestCPU_GetBlock(t *testing.T) {
 	}
 }
 
-func TestCPU_GetBlock_NoHistory(t *testing.T) {
+func TestCPU_GetBlock_NotReady(t *testing.T) {
+	// EMA not ready (not enough samples)
 	cpu := &CPU{
-		cfg:     config.CPUConfig{AverageSeconds: 3},
-		history: []CPUUsage{}, // not enough history
+		cfg:      config.CPUConfig{SmoothingIntervalSeconds: 3},
+		totalEMA: util.NewEMA(3), // needs 3 samples to be ready
 	}
 
 	block := cpu.GetBlock()
 	if block != "" {
-		t.Errorf("GetBlock() = %q, want empty when no history", block)
+		t.Errorf("GetBlock() = %q, want empty when EMA not ready", block)
 	}
 }

@@ -38,8 +38,8 @@ enabled = true
 show_above = 50
 # show per-core info when any core above this %
 show_core_above = 95
-# averaging window in seconds (smooths out spikes)
-average_seconds = 5
+# smoothing window in seconds (EMA-based, reduces flickering)
+smoothing_interval_seconds = 3
 # urgent when above this %
 urgent_above = 95
 
@@ -102,3 +102,5 @@ interfaces = ["tun*", "wg*", "tap*", "cscotun*"]
 # label = "CPU"
 # show_above = 75
 # urgent_above = 90
+# smoothing window in seconds (EMA-based, reduces flickering, default 3)
+# smoothing_interval_seconds = 3
