@@ -26,6 +26,12 @@ All widgets are threshold-based: they only appear when something needs attention
 ### Arch Linux
 
 ```sh
+yay -S h2status
+```
+
+Or install the development version:
+
+```sh
 yay -S h2status-git
 ```
 
