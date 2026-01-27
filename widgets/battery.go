@@ -175,7 +175,7 @@ func (b *Battery) GetBlock() string {
 	var text string
 
 	if b.State == BatteryStateCharging {
-		symbol = "\uf084" // nf-fa-battery-charging
+		symbol = "\uf1e6" // nf-fa-plug
 	} else {
 		idx := b.Percentage / 20
 		if idx > 5 {
