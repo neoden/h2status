@@ -122,8 +122,8 @@ func TestBattery_Update(t *testing.T) {
 	if b.Percentage != 75 {
 		t.Errorf("Percentage = %d, want 75", b.Percentage)
 	}
-	if b.IsCharging {
-		t.Error("IsCharging = true, want false")
+	if b.State != BatteryStateDischarging {
+		t.Errorf("State = %v, want BatteryStateDischarging", b.State)
 	}
 }
 
@@ -140,8 +140,8 @@ func TestBattery_Update_Charging(t *testing.T) {
 	b := NewBattery(config.BatteryConfig{}, fs)
 	b.Update()
 
-	if !b.IsCharging {
-		t.Error("IsCharging = false, want true")
+	if b.State != BatteryStateCharging {
+		t.Errorf("State = %v, want BatteryStateCharging", b.State)
 	}
 }
 
@@ -200,7 +200,7 @@ func TestBattery_HideLogic(t *testing.T) {
 	tests := []struct {
 		name                 string
 		percentage           int
-		isCharging           bool
+		state                BatteryState
 		hideChargingAbove    int
 		hideDischargingAbove int
 		shouldHide           bool
@@ -208,44 +208,65 @@ func TestBattery_HideLogic(t *testing.T) {
 		{
 			name:              "charging above threshold - hide",
 			percentage:        99,
-			isCharging:        true,
+			state:             BatteryStateCharging,
 			hideChargingAbove: 98,
 			shouldHide:        true,
 		},
 		{
 			name:              "charging below threshold - show",
 			percentage:        50,
-			isCharging:        true,
+			state:             BatteryStateCharging,
 			hideChargingAbove: 98,
 			shouldHide:        false,
 		},
 		{
 			name:                 "discharging above threshold - hide",
 			percentage:           50,
-			isCharging:           false,
+			state:                BatteryStateDischarging,
 			hideDischargingAbove: 20,
 			shouldHide:           true,
 		},
 		{
 			name:                 "discharging below threshold - show",
 			percentage:           15,
-			isCharging:           false,
+			state:                BatteryStateDischarging,
 			hideDischargingAbove: 20,
 			shouldHide:           false,
 		},
 		{
 			name:              "charging at threshold - show",
 			percentage:        98,
-			isCharging:        true,
+			state:             BatteryStateCharging,
 			hideChargingAbove: 98,
 			shouldHide:        false,
 		},
 		{
 			name:                 "discharging at threshold - show",
 			percentage:           20,
-			isCharging:           false,
+			state:                BatteryStateDischarging,
 			hideDischargingAbove: 20,
 			shouldHide:           false,
+		},
+		{
+			name:              "full above threshold - hide",
+			percentage:        100,
+			state:             BatteryStateFull,
+			hideChargingAbove: 98,
+			shouldHide:        true,
+		},
+		{
+			name:              "not charging above threshold - hide",
+			percentage:        80,
+			state:             BatteryStateNotCharging,
+			hideChargingAbove: 70,
+			shouldHide:        true,
+		},
+		{
+			name:                 "unknown above threshold - hide",
+			percentage:           50,
+			state:                BatteryStateUnknown,
+			hideDischargingAbove: 20,
+			shouldHide:           true,
 		},
 	}
 
@@ -258,7 +279,7 @@ func TestBattery_HideLogic(t *testing.T) {
 				},
 				Present:    true,
 				Percentage: tt.percentage,
-				IsCharging: tt.isCharging,
+				State:      tt.state,
 			}
 
 			block := b.GetBlock()
@@ -289,7 +310,7 @@ func TestBattery_GetBlock_RemainingTimeMode(t *testing.T) {
 		},
 		Present:    true,
 		Percentage: 50,
-		IsCharging: false,
+		State:      BatteryStateDischarging,
 		Remaining:  2*time.Hour + 30*time.Minute,
 		Mode:       BatteryModeRemainingTime,
 	}
@@ -363,7 +384,7 @@ func TestBattery_GetBlock_PercentageOver100(t *testing.T) {
 		},
 		Present:    true,
 		Percentage: 125, // buggy ACPI
-		IsCharging: false,
+		State:      BatteryStateDischarging,
 	}
 
 	block := b.GetBlock()
@@ -397,7 +418,7 @@ func TestBattery_UrgentBelow(t *testing.T) {
 				},
 				Present:    true,
 				Percentage: tt.percentage,
-				IsCharging: false,
+				State:      BatteryStateDischarging,
 			}
 
 			block := b.GetBlock()

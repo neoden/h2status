@@ -213,7 +213,7 @@ func (t *Temperature) GetBlock() string {
 	showMultiple := len(t.sensors) > 1
 
 	for _, sensor := range t.sensors {
-		if sensor.Value <= sensor.ShowAbove {
+		if !sensor.ema.Ready() || sensor.Value <= sensor.ShowAbove {
 			continue
 		}
 

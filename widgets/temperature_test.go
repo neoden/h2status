@@ -7,7 +7,15 @@ import (
 	"github.com/spf13/afero"
 
 	"neoden/h2status/config"
+	"neoden/h2status/util"
 )
+
+// newReadyEMA creates an EMA that is already primed and ready
+func newReadyEMA() *util.EMA {
+	ema := util.NewEMA(1)
+	ema.Update(0) // prime it
+	return ema
+}
 
 func TestTemperature_MillidegreesConversion(t *testing.T) {
 	tests := []struct {
@@ -59,6 +67,7 @@ func TestTemperature_GetBlock_SingleSensor(t *testing.T) {
 					ShowAbove:   tt.showAbove,
 					UrgentAbove: tt.urgAbove,
 					Value:       tt.value,
+					ema:         newReadyEMA(),
 				}},
 			}
 
@@ -80,8 +89,8 @@ func TestTemperature_GetBlock_SingleSensor(t *testing.T) {
 func TestTemperature_GetBlock_MultipleSensors(t *testing.T) {
 	temp := &Temperature{
 		sensors: []TempSensor{
-			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80},
-			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 85},
+			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80, ema: newReadyEMA()},
+			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 85, ema: newReadyEMA()},
 		},
 	}
 
@@ -99,8 +108,8 @@ func TestTemperature_GetBlock_MultipleSensors(t *testing.T) {
 func TestTemperature_GetBlock_PartialShow(t *testing.T) {
 	temp := &Temperature{
 		sensors: []TempSensor{
-			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80}, // shown
-			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 50}, // hidden
+			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80, ema: newReadyEMA()}, // shown
+			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 50, ema: newReadyEMA()}, // hidden
 		},
 	}
 
@@ -116,8 +125,8 @@ func TestTemperature_GetBlock_PartialShow(t *testing.T) {
 func TestTemperature_GetBlock_AllHidden(t *testing.T) {
 	temp := &Temperature{
 		sensors: []TempSensor{
-			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 50},
-			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 60},
+			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 50, ema: newReadyEMA()},
+			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 60, ema: newReadyEMA()},
 		},
 	}
 
@@ -130,8 +139,8 @@ func TestTemperature_GetBlock_AllHidden(t *testing.T) {
 func TestTemperature_AnyUrgent(t *testing.T) {
 	temp := &Temperature{
 		sensors: []TempSensor{
-			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80}, // not urgent
-			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 95}, // urgent
+			{Label: "CPU", ShowAbove: 75, UrgentAbove: 90, Value: 80, ema: newReadyEMA()}, // not urgent
+			{Label: "GPU", ShowAbove: 75, UrgentAbove: 90, Value: 95, ema: newReadyEMA()}, // urgent
 		},
 	}
 
