@@ -18,6 +18,52 @@ const (
 	BatteryModeRemainingTime = 1
 )
 
+type BatteryState int
+
+const (
+	BatteryStateUnknown BatteryState = iota
+	BatteryStateCharging
+	BatteryStateDischarging
+	BatteryStateFull
+	BatteryStateNotCharging
+)
+
+func (s BatteryState) IsOnAC() bool {
+	return s == BatteryStateCharging || s == BatteryStateFull || s == BatteryStateNotCharging
+}
+
+// priority returns the precedence for aggregating multiple battery states.
+// Higher value = higher priority when combining states.
+func (s BatteryState) priority() int {
+	switch s {
+	case BatteryStateCharging:
+		return 5
+	case BatteryStateDischarging:
+		return 4
+	case BatteryStateNotCharging:
+		return 3
+	case BatteryStateFull:
+		return 2
+	default: // BatteryStateUnknown
+		return 1
+	}
+}
+
+func parseBatteryStatus(status string) BatteryState {
+	switch status {
+	case "Charging":
+		return BatteryStateCharging
+	case "Discharging":
+		return BatteryStateDischarging
+	case "Full":
+		return BatteryStateFull
+	case "Not charging":
+		return BatteryStateNotCharging
+	default:
+		return BatteryStateUnknown
+	}
+}
+
 type BatteryInfo struct {
 	Path       string
 	Status     string
@@ -36,7 +82,7 @@ type Battery struct {
 	EnergyNow  int
 	PowerNow   int
 	Remaining  time.Duration
-	IsCharging bool
+	State      BatteryState
 	Mode       int
 }
 
@@ -59,7 +105,8 @@ func (b *Battery) Update() {
 	b.EnergyFull = 0
 	b.EnergyNow = 0
 	b.PowerNow = 0
-	b.IsCharging = false
+	b.Remaining = 0
+	b.State = BatteryStateUnknown
 
 	// Find all batteries
 	matches, err := afero.Glob(b.fs, "/sys/class/power_supply/BAT*")
@@ -101,8 +148,10 @@ func (b *Battery) Update() {
 		b.EnergyNow += bat.EnergyNow
 		b.PowerNow += bat.PowerNow
 
-		if bat.Status == "Charging" {
-			b.IsCharging = true
+		// Determine state using priority (Charging > Discharging > NotCharging > Full > Unknown)
+		batState := parseBatteryStatus(bat.Status)
+		if batState.priority() > b.State.priority() {
+			b.State = batState
 		}
 	}
 
@@ -119,9 +168,9 @@ func (b *Battery) Update() {
 
 	// Calculate remaining time
 	if b.PowerNow > 0 {
-		if b.IsCharging {
+		if b.State == BatteryStateCharging {
 			b.Remaining = time.Duration((b.EnergyFull-b.EnergyNow)*1000/b.PowerNow) * time.Hour / 1000
-		} else {
+		} else if b.State == BatteryStateDischarging {
 			b.Remaining = time.Duration(b.EnergyNow*1000/b.PowerNow) * time.Hour / 1000
 		}
 	}
@@ -132,25 +181,25 @@ func (b *Battery) GetBlock() string {
 		return ""
 	}
 
-	if b.IsCharging && b.Percentage > b.cfg.HideChargingAbove {
+	if b.State.IsOnAC() && b.Percentage > b.cfg.HideChargingAbove {
 		return ""
 	}
-	if !b.IsCharging && b.Percentage > b.cfg.HideDischargingAbove {
+	if !b.State.IsOnAC() && b.Percentage > b.cfg.HideDischargingAbove {
 		return ""
 	}
 
-	symbols := [6]string{"\uf244", "\uf243", "\uf242", "\uf241", "\uf240", "\uf240"}
+	batteryLevelSymbols := [6]string{"\uf244", "\uf243", "\uf242", "\uf241", "\uf240", "\uf240"}
 	var symbol string
 	var text string
 
-	if b.IsCharging {
-		symbol = "\uf1e6"
+	if b.State == BatteryStateCharging {
+		symbol = "\uf1e6" // nf-fa-plug
 	} else {
 		idx := b.Percentage / 20
 		if idx > 5 {
 			idx = 5
 		}
-		symbol = symbols[idx]
+		symbol = batteryLevelSymbols[idx]
 	}
 
 	if b.Mode == BatteryModePercentage {

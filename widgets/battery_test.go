@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -122,8 +123,8 @@ func TestBattery_Update(t *testing.T) {
 	if b.Percentage != 75 {
 		t.Errorf("Percentage = %d, want 75", b.Percentage)
 	}
-	if b.IsCharging {
-		t.Error("IsCharging = true, want false")
+	if b.State != BatteryStateDischarging {
+		t.Errorf("State = %v, want BatteryStateDischarging", b.State)
 	}
 }
 
@@ -140,8 +141,8 @@ func TestBattery_Update_Charging(t *testing.T) {
 	b := NewBattery(config.BatteryConfig{}, fs)
 	b.Update()
 
-	if !b.IsCharging {
-		t.Error("IsCharging = false, want true")
+	if b.State != BatteryStateCharging {
+		t.Errorf("State = %v, want BatteryStateCharging", b.State)
 	}
 }
 
@@ -200,7 +201,7 @@ func TestBattery_HideLogic(t *testing.T) {
 	tests := []struct {
 		name                 string
 		percentage           int
-		isCharging           bool
+		state                BatteryState
 		hideChargingAbove    int
 		hideDischargingAbove int
 		shouldHide           bool
@@ -208,44 +209,65 @@ func TestBattery_HideLogic(t *testing.T) {
 		{
 			name:              "charging above threshold - hide",
 			percentage:        99,
-			isCharging:        true,
+			state:             BatteryStateCharging,
 			hideChargingAbove: 98,
 			shouldHide:        true,
 		},
 		{
 			name:              "charging below threshold - show",
 			percentage:        50,
-			isCharging:        true,
+			state:             BatteryStateCharging,
 			hideChargingAbove: 98,
 			shouldHide:        false,
 		},
 		{
 			name:                 "discharging above threshold - hide",
 			percentage:           50,
-			isCharging:           false,
+			state:                BatteryStateDischarging,
 			hideDischargingAbove: 20,
 			shouldHide:           true,
 		},
 		{
 			name:                 "discharging below threshold - show",
 			percentage:           15,
-			isCharging:           false,
+			state:                BatteryStateDischarging,
 			hideDischargingAbove: 20,
 			shouldHide:           false,
 		},
 		{
 			name:              "charging at threshold - show",
 			percentage:        98,
-			isCharging:        true,
+			state:             BatteryStateCharging,
 			hideChargingAbove: 98,
 			shouldHide:        false,
 		},
 		{
 			name:                 "discharging at threshold - show",
 			percentage:           20,
-			isCharging:           false,
+			state:                BatteryStateDischarging,
 			hideDischargingAbove: 20,
 			shouldHide:           false,
+		},
+		{
+			name:              "full above threshold - hide",
+			percentage:        100,
+			state:             BatteryStateFull,
+			hideChargingAbove: 98,
+			shouldHide:        true,
+		},
+		{
+			name:              "not charging above threshold - hide",
+			percentage:        80,
+			state:             BatteryStateNotCharging,
+			hideChargingAbove: 70,
+			shouldHide:        true,
+		},
+		{
+			name:                 "unknown above threshold - hide",
+			percentage:           50,
+			state:                BatteryStateUnknown,
+			hideDischargingAbove: 20,
+			shouldHide:           true,
 		},
 	}
 
@@ -258,7 +280,7 @@ func TestBattery_HideLogic(t *testing.T) {
 				},
 				Present:    true,
 				Percentage: tt.percentage,
-				IsCharging: tt.isCharging,
+				State:      tt.state,
 			}
 
 			block := b.GetBlock()
@@ -289,7 +311,7 @@ func TestBattery_GetBlock_RemainingTimeMode(t *testing.T) {
 		},
 		Present:    true,
 		Percentage: 50,
-		IsCharging: false,
+		State:      BatteryStateDischarging,
 		Remaining:  2*time.Hour + 30*time.Minute,
 		Mode:       BatteryModeRemainingTime,
 	}
@@ -363,7 +385,7 @@ func TestBattery_GetBlock_PercentageOver100(t *testing.T) {
 		},
 		Present:    true,
 		Percentage: 125, // buggy ACPI
-		IsCharging: false,
+		State:      BatteryStateDischarging,
 	}
 
 	block := b.GetBlock()
@@ -397,7 +419,7 @@ func TestBattery_UrgentBelow(t *testing.T) {
 				},
 				Present:    true,
 				Percentage: tt.percentage,
-				IsCharging: false,
+				State:      BatteryStateDischarging,
 			}
 
 			block := b.GetBlock()
@@ -422,4 +444,111 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestParseBatteryStatus(t *testing.T) {
+	tests := []struct {
+		status string
+		want   BatteryState
+	}{
+		{"Charging", BatteryStateCharging},
+		{"Discharging", BatteryStateDischarging},
+		{"Full", BatteryStateFull},
+		{"Not charging", BatteryStateNotCharging},
+		{"Unknown", BatteryStateUnknown},
+		{"", BatteryStateUnknown},
+		{"Something else", BatteryStateUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			got := parseBatteryStatus(tt.status)
+			if got != tt.want {
+				t.Errorf("parseBatteryStatus(%q) = %v, want %v", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBatteryState_Priority(t *testing.T) {
+	// Charging > Discharging > NotCharging > Full > Unknown
+	if BatteryStateCharging.priority() <= BatteryStateDischarging.priority() {
+		t.Error("Charging should have higher priority than Discharging")
+	}
+	if BatteryStateDischarging.priority() <= BatteryStateNotCharging.priority() {
+		t.Error("Discharging should have higher priority than NotCharging")
+	}
+	if BatteryStateNotCharging.priority() <= BatteryStateFull.priority() {
+		t.Error("NotCharging should have higher priority than Full")
+	}
+	if BatteryStateFull.priority() <= BatteryStateUnknown.priority() {
+		t.Error("Full should have higher priority than Unknown")
+	}
+}
+
+func TestBattery_Update_MultipleBatteries_StateAggregation(t *testing.T) {
+	tests := []struct {
+		name     string
+		statuses []string
+		want     BatteryState
+	}{
+		{"both charging", []string{"Charging", "Charging"}, BatteryStateCharging},
+		{"both discharging", []string{"Discharging", "Discharging"}, BatteryStateDischarging},
+		{"one charging one discharging", []string{"Discharging", "Charging"}, BatteryStateCharging},
+		{"one full one discharging", []string{"Full", "Discharging"}, BatteryStateDischarging},
+		{"one full one not charging", []string{"Full", "Not charging"}, BatteryStateNotCharging},
+		{"both full", []string{"Full", "Full"}, BatteryStateFull},
+		{"unknown and full", []string{"Unknown", "Full"}, BatteryStateFull},
+		{"unknown and discharging", []string{"Unknown", "Discharging"}, BatteryStateDischarging},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+
+			for i, status := range tt.statuses {
+				dir := fmt.Sprintf("/sys/class/power_supply/BAT%d", i)
+				fs.MkdirAll(dir, 0755)
+				afero.WriteFile(fs, dir+"/capacity", []byte("50\n"), 0644)
+				afero.WriteFile(fs, dir+"/status", []byte(status+"\n"), 0644)
+				afero.WriteFile(fs, dir+"/energy_full", []byte("50000000\n"), 0644)
+				afero.WriteFile(fs, dir+"/energy_now", []byte("25000000\n"), 0644)
+				afero.WriteFile(fs, dir+"/power_now", []byte("10000000\n"), 0644)
+			}
+
+			b := NewBattery(config.BatteryConfig{}, fs)
+			b.Update()
+
+			if b.State != tt.want {
+				t.Errorf("State = %v, want %v", b.State, tt.want)
+			}
+		})
+	}
+}
+
+func TestBattery_RemainingReset(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	fs.MkdirAll("/sys/class/power_supply/BAT0", 0755)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/capacity", []byte("50\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/status", []byte("Discharging\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/energy_full", []byte("50000000\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/energy_now", []byte("25000000\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/power_now", []byte("10000000\n"), 0644)
+
+	b := NewBattery(config.BatteryConfig{}, fs)
+	b.Update()
+
+	if b.Remaining == 0 {
+		t.Fatal("Remaining should be non-zero when discharging with power_now > 0")
+	}
+
+	// Change to Full status (no remaining time)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/status", []byte("Full\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/power_now", []byte("0\n"), 0644)
+	b.Update()
+
+	if b.Remaining != 0 {
+		t.Errorf("Remaining = %v, want 0 after switching to Full", b.Remaining)
+	}
 }

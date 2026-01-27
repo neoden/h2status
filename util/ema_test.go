@@ -66,7 +66,7 @@ func TestEMA_Smoothing(t *testing.T) {
 }
 
 func TestEMA_Ready(t *testing.T) {
-	ema := NewEMA(3)
+	ema := NewEMA(5)
 
 	if ema.Ready() {
 		t.Error("Should not be ready before any updates")
@@ -74,22 +74,17 @@ func TestEMA_Ready(t *testing.T) {
 
 	ema.Update(10)
 	if ema.Ready() {
-		t.Error("Should not be ready after 1 update (need 3)")
+		t.Error("Should not be ready after 1 update (need 2 for first smoothing)")
 	}
 
 	ema.Update(20)
-	if ema.Ready() {
-		t.Error("Should not be ready after 2 updates (need 3)")
+	if !ema.Ready() {
+		t.Error("Should be ready after 2 updates (smoothing has occurred)")
 	}
 
 	ema.Update(30)
 	if !ema.Ready() {
-		t.Error("Should be ready after 3 updates")
-	}
-
-	ema.Update(40)
-	if !ema.Ready() {
-		t.Error("Should still be ready after 4 updates")
+		t.Error("Should still be ready after 3 updates")
 	}
 }
 
