@@ -375,13 +375,15 @@ func TestCPU_GetBlock(t *testing.T) {
 				SmoothingIntervalSeconds: 1,
 			}
 
-			// Create CPU with primed EMAs
+			// Create CPU with ready EMAs (need 2 updates for Ready())
 			totalEMA := util.NewEMA(1)
+			totalEMA.Update(tt.total)
 			totalEMA.Update(tt.total)
 
 			coreEMAs := make([]*util.EMA, len(tt.perCore))
 			for i, v := range tt.perCore {
 				coreEMAs[i] = util.NewEMA(1)
+				coreEMAs[i].Update(v)
 				coreEMAs[i].Update(v)
 			}
 
@@ -410,10 +412,10 @@ func TestCPU_GetBlock(t *testing.T) {
 }
 
 func TestCPU_GetBlock_NotReady(t *testing.T) {
-	// EMA not ready (not enough samples)
+	// EMA not ready (need 2 samples for first smoothing)
 	cpu := &CPU{
 		cfg:      config.CPUConfig{SmoothingIntervalSeconds: 3},
-		totalEMA: util.NewEMA(3), // needs 3 samples to be ready
+		totalEMA: util.NewEMA(3), // no samples yet
 	}
 
 	block := cpu.GetBlock()

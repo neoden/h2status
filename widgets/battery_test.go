@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -443,4 +444,111 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestParseBatteryStatus(t *testing.T) {
+	tests := []struct {
+		status string
+		want   BatteryState
+	}{
+		{"Charging", BatteryStateCharging},
+		{"Discharging", BatteryStateDischarging},
+		{"Full", BatteryStateFull},
+		{"Not charging", BatteryStateNotCharging},
+		{"Unknown", BatteryStateUnknown},
+		{"", BatteryStateUnknown},
+		{"Something else", BatteryStateUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			got := parseBatteryStatus(tt.status)
+			if got != tt.want {
+				t.Errorf("parseBatteryStatus(%q) = %v, want %v", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBatteryState_Priority(t *testing.T) {
+	// Charging > Discharging > NotCharging > Full > Unknown
+	if BatteryStateCharging.priority() <= BatteryStateDischarging.priority() {
+		t.Error("Charging should have higher priority than Discharging")
+	}
+	if BatteryStateDischarging.priority() <= BatteryStateNotCharging.priority() {
+		t.Error("Discharging should have higher priority than NotCharging")
+	}
+	if BatteryStateNotCharging.priority() <= BatteryStateFull.priority() {
+		t.Error("NotCharging should have higher priority than Full")
+	}
+	if BatteryStateFull.priority() <= BatteryStateUnknown.priority() {
+		t.Error("Full should have higher priority than Unknown")
+	}
+}
+
+func TestBattery_Update_MultipleBatteries_StateAggregation(t *testing.T) {
+	tests := []struct {
+		name     string
+		statuses []string
+		want     BatteryState
+	}{
+		{"both charging", []string{"Charging", "Charging"}, BatteryStateCharging},
+		{"both discharging", []string{"Discharging", "Discharging"}, BatteryStateDischarging},
+		{"one charging one discharging", []string{"Discharging", "Charging"}, BatteryStateCharging},
+		{"one full one discharging", []string{"Full", "Discharging"}, BatteryStateDischarging},
+		{"one full one not charging", []string{"Full", "Not charging"}, BatteryStateNotCharging},
+		{"both full", []string{"Full", "Full"}, BatteryStateFull},
+		{"unknown and full", []string{"Unknown", "Full"}, BatteryStateFull},
+		{"unknown and discharging", []string{"Unknown", "Discharging"}, BatteryStateDischarging},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+
+			for i, status := range tt.statuses {
+				dir := fmt.Sprintf("/sys/class/power_supply/BAT%d", i)
+				fs.MkdirAll(dir, 0755)
+				afero.WriteFile(fs, dir+"/capacity", []byte("50\n"), 0644)
+				afero.WriteFile(fs, dir+"/status", []byte(status+"\n"), 0644)
+				afero.WriteFile(fs, dir+"/energy_full", []byte("50000000\n"), 0644)
+				afero.WriteFile(fs, dir+"/energy_now", []byte("25000000\n"), 0644)
+				afero.WriteFile(fs, dir+"/power_now", []byte("10000000\n"), 0644)
+			}
+
+			b := NewBattery(config.BatteryConfig{}, fs)
+			b.Update()
+
+			if b.State != tt.want {
+				t.Errorf("State = %v, want %v", b.State, tt.want)
+			}
+		})
+	}
+}
+
+func TestBattery_RemainingReset(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	fs.MkdirAll("/sys/class/power_supply/BAT0", 0755)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/capacity", []byte("50\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/status", []byte("Discharging\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/energy_full", []byte("50000000\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/energy_now", []byte("25000000\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/power_now", []byte("10000000\n"), 0644)
+
+	b := NewBattery(config.BatteryConfig{}, fs)
+	b.Update()
+
+	if b.Remaining == 0 {
+		t.Fatal("Remaining should be non-zero when discharging with power_now > 0")
+	}
+
+	// Change to Full status (no remaining time)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/status", []byte("Full\n"), 0644)
+	afero.WriteFile(fs, "/sys/class/power_supply/BAT0/power_now", []byte("0\n"), 0644)
+	b.Update()
+
+	if b.Remaining != 0 {
+		t.Errorf("Remaining = %v, want 0 after switching to Full", b.Remaining)
+	}
 }

@@ -30,9 +30,7 @@ func (e *EMA) Update(value float64) float64 {
 		e.samples = 1
 	} else {
 		e.value = e.alpha*value + (1-e.alpha)*e.value
-		if e.samples < e.period {
-			e.samples++
-		}
+		e.samples++
 	}
 	return e.value
 }
@@ -42,7 +40,7 @@ func (e *EMA) Value() float64 {
 	return e.value
 }
 
-// Ready returns true when enough samples have been collected.
+// Ready returns true after at least one smoothing has occurred.
 func (e *EMA) Ready() bool {
-	return e.samples >= e.period
+	return e.samples >= 2
 }

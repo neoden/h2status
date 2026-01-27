@@ -32,6 +32,23 @@ func (s BatteryState) IsOnAC() bool {
 	return s == BatteryStateCharging || s == BatteryStateFull || s == BatteryStateNotCharging
 }
 
+// priority returns the precedence for aggregating multiple battery states.
+// Higher value = higher priority when combining states.
+func (s BatteryState) priority() int {
+	switch s {
+	case BatteryStateCharging:
+		return 5
+	case BatteryStateDischarging:
+		return 4
+	case BatteryStateNotCharging:
+		return 3
+	case BatteryStateFull:
+		return 2
+	default: // BatteryStateUnknown
+		return 1
+	}
+}
+
 func parseBatteryStatus(status string) BatteryState {
 	switch status {
 	case "Charging":
@@ -88,6 +105,7 @@ func (b *Battery) Update() {
 	b.EnergyFull = 0
 	b.EnergyNow = 0
 	b.PowerNow = 0
+	b.Remaining = 0
 	b.State = BatteryStateUnknown
 
 	// Find all batteries
@@ -130,9 +148,9 @@ func (b *Battery) Update() {
 		b.EnergyNow += bat.EnergyNow
 		b.PowerNow += bat.PowerNow
 
-		// Determine state (Charging takes priority if any battery is charging)
+		// Determine state using priority (Charging > Discharging > NotCharging > Full > Unknown)
 		batState := parseBatteryStatus(bat.Status)
-		if batState == BatteryStateCharging || b.State == BatteryStateUnknown {
+		if batState.priority() > b.State.priority() {
 			b.State = batState
 		}
 	}

@@ -10,10 +10,11 @@ import (
 	"neoden/h2status/util"
 )
 
-// newReadyEMA creates an EMA that is already primed and ready
+// newReadyEMA creates an EMA that is already ready (has 2+ samples)
 func newReadyEMA() *util.EMA {
 	ema := util.NewEMA(1)
-	ema.Update(0) // prime it
+	ema.Update(0)
+	ema.Update(0)
 	return ema
 }
 
@@ -525,5 +526,30 @@ func TestTemperature_DefaultSmoothingInterval(t *testing.T) {
 	temp.Update()
 	if temp.sensors[0].Value != 50 {
 		t.Errorf("Value = %d, want 50", temp.sensors[0].Value)
+	}
+}
+
+func TestTemperature_GetBlock_HiddenUntilEMAReady(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	afero.WriteFile(fs, "/sys/hwmon/temp1", []byte("85000\n"), 0644) // 85°C, above ShowAbove
+
+	cfgs := []config.TemperatureConfig{
+		{Path: "/sys/hwmon/temp1", Label: "CPU", ShowAbove: 75, UrgentAbove: 90, SmoothingIntervalSeconds: 5},
+	}
+
+	temp := NewTemperature(cfgs, fs)
+
+	// First update - EMA not ready yet (need 2 samples for first smoothing)
+	temp.Update()
+	block := temp.GetBlock()
+	if block != "" {
+		t.Errorf("GetBlock() = %q, want empty when EMA not ready", block)
+	}
+
+	// Second update - now EMA has smoothed at least once
+	temp.Update()
+	block = temp.GetBlock()
+	if block == "" {
+		t.Error("GetBlock() = empty, want non-empty after EMA ready")
 	}
 }
