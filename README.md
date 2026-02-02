@@ -2,6 +2,8 @@
 
 Lightweight status bar for sway/i3.
 
+![screenshot](screenshot.png)
+
 ## Philosophy
 
 Show the bare minimum. Most widgets appear only when something needs attention — low battery, high CPU load, weak WiFi signal. If everything is fine, the bar stays clean.
