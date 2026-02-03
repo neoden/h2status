@@ -1,5 +1,8 @@
 # h2status
 
+[![CI](https://github.com/neoden/h2status/actions/workflows/ci.yml/badge.svg)](https://github.com/neoden/h2status/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/neoden/h2status/graph/badge.svg)](https://codecov.io/gh/neoden/h2status)
+
 Lightweight status bar for sway/i3.
 
 ![screenshot](screenshot.png)
